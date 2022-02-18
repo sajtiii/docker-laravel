@@ -52,5 +52,9 @@ RUN touch /var/log/php/errors.log && chmod 777 /var/log/php/errors.log
 # Deployment steps
 RUN chmod +x /run.sh
 
+# Add healthcheck
+HEALTHCHECK --interval=60s --timeout=1s CMD curl --fail http://127.0.0.1/api/health || exit 1
+
+# Start
 EXPOSE 80
 ENTRYPOINT ["/run.sh"]
