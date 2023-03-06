@@ -11,7 +11,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}:$GITHUB_REF_NAME
+  IMAGE_NAME: ${{ github.repository }}:${{ github.ref_name }}
 
 jobs:
   push_to_registry:
