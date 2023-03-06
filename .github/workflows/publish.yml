@@ -1,5 +1,10 @@
 name: Publish
 
+on:
+  push:
+    branches:
+      - 10-php81
+
 jobs:
   publish:
     uses: sajtiii/docker-laravel/.github/workflows/publish.yml@main
