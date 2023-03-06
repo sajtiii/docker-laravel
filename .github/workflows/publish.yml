@@ -2,4 +2,4 @@ name: Publish
 
 jobs:
   publish:
-    uses: ./.github/actions/publish.yml@main
+    uses: ./.github/workflows/publish.yml@main
