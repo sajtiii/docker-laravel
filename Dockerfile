@@ -1,60 +1,57 @@
-FROM php:8-fpm
+FROM alpine:3.16
 
-# Set working directory
-WORKDIR /var/www
+ENV PHP_VERSION=php81
+ENV LARAVEL_VERSION=10
 
-# Add docker php ext repo
-ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
+RUN apk add --no-cache \
+    nginx \
+    nginx-mod-http-headers-more \
+    nginx-http-mod-brotli \
+    $PHP_VERSION \
+    $PHP_VERSION-bcmath \
+    $PHP_VERSION-ctype \
+    $PHP_VERSION-curl \
+    $PHP_VERSION-dom \
+    $PHP_VERSION-fileinfo \
+    $PHP_VERSION-fpm \
+    $PHP_VERSION-gd \
+    $PHP_VERSION-iconv \
+    $PHP_VERSION-json \
+    $PHP_VERSION-mbstring \
+    $PHP_VERSION-mysqli \
+    $PHP_VERSION-pdo \
+    $PHP_VERSION-pdo_mysql \
+    $PHP_VERSION-pdo_sqlite \
+    $PHP_VERSION-pecl-redis \
+    $PHP_VERSION-phar \
+    $PHP_VERSION-session \
+    $PHP_VERSION-sodium \
+    $PHP_VERSION-simplexml \
+    $PHP_VERSION-sqlite3 \
+    $PHP_VERSION-tokenizer \
+    $PHP_VERSION-xml \
+    $PHP_VERSION-xmlreader \
+    $PHP_VERSION-xmlwriter \
+    npm \
+    supervisor
 
-# Install php extensions
-RUN chmod +x /usr/local/bin/install-php-extensions && sync && \
-    install-php-extensions mbstring pdo_mysql zip exif pcntl gd memcached
+RUN install -d -o nginx -g nginx \
+    /run/php \
+    /var/log/nginx \
+    /var/log/php \
+    /var/log/supervisor 
 
-# Install dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpng-dev \
-    libjpeg62-turbo-dev \
-    libfreetype6-dev \
-    locales \
-    zip \
-    jpegoptim optipng pngquant gifsicle \
-    unzip \
-    git \
-    curl \
-    lua-zlib-dev \
-    libmemcached-dev \
-    nginx
+RUN ln -s /usr/bin/$PHP_VERSION /usr/bin/php
 
-# Install supervisor
-RUN apt-get install -y supervisor
+RUN wget -O - https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/bin
 
-# Install composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+RUN chown nginx:nignx /srv/http -R
 
-# Clear cache
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+COPY overlay /
 
-# Add user for laravel application
-RUN groupadd -g 1000 www
-RUN useradd -u 1000 -ms /bin/bash -g www www
+WORKDIR /srv/http
 
-# Copy nginx/php/supervisor configs
-ADD supervisor.conf /etc/supervisord.conf
-ADD php.ini /usr/local/etc/php/conf.d/app.ini
-ADD nginx.conf /etc/nginx/sites-enabled/default
-ADD run.sh /run.sh
-
-# PHP Error Log Files
-RUN mkdir /var/log/php
-RUN touch /var/log/php/errors.log && chmod 777 /var/log/php/errors.log
-
-# Deployment steps
-RUN chmod +x /run.sh
-
-# Add healthcheck
-HEALTHCHECK --interval=60s --timeout=1s CMD curl --fail http://127.0.0.1/api/health || exit 1
-
-# Start
 EXPOSE 80
-ENTRYPOINT ["/run.sh"]
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-n", "-c", "/etc/supervirod.conf"]
