@@ -23,4 +23,3 @@ fi
 
 echo "Executing start command [$@] ..."
 exec "$@"
-
