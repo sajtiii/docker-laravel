@@ -2,4 +2,4 @@ name: Publish
 
 jobs:
   publish:
-    uses: sajtiii/docker-laravel/.github/actions/publish.yml@main
+    uses: ./.github/actions/publish.yml@main
