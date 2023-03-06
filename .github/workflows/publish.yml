@@ -8,7 +8,7 @@ name: Docker
 on:
   push:
     branches:
-      - [0-9]+-php[0-9]+
+      - "[0-9]+-php[0-9]+"
 
 env:
   REGISTRY: ghcr.io
