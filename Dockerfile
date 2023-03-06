@@ -6,7 +6,7 @@ ENV LARAVEL_VERSION=10
 RUN apk add --no-cache \
     nginx \
     nginx-mod-http-headers-more \
-    nginx-http-mod-brotli \
+    nginx-mod-http-brotli \
     $PHP_VERSION \
     $PHP_VERSION-bcmath \
     $PHP_VERSION-ctype \
@@ -45,7 +45,8 @@ RUN ln -s /usr/bin/$PHP_VERSION /usr/bin/php
 
 RUN wget -O - https://getcomposer.org/installer | php -- --filename=composer --install-dir=/usr/bin
 
-RUN chown nginx:nignx /srv/http -R
+RUN mkdir -p /srv/http && \
+    chown nginx:nginx /srv/http -R
 
 COPY overlay /
 
