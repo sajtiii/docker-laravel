@@ -3,7 +3,6 @@ name: Publish
 on:
   push:
     branches:
-      - 10-php81
 
 jobs:
   publish:
