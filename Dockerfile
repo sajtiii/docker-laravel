@@ -57,4 +57,4 @@ WORKDIR /srv/http
 EXPOSE 80
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["supervisord", "-n", "-c", "/etc/supervirod.conf"]
+CMD ["supervisord", "-n", "-c", "/etc/supervisord.conf"]
