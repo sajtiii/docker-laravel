@@ -50,6 +50,8 @@ RUN mkdir -p /srv/http && \
 
 COPY overlay /
 
+RUN chmod +x /entrypoint.sh
+
 WORKDIR /srv/http
 
 EXPOSE 80
