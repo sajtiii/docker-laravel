@@ -2,6 +2,10 @@ FROM php:8.3-cli-alpine
 
 ENV TZ=UTC
 
+LABEL org.opencontainers.image.source=https://github.com/sajtiii/docker-laravel
+LABEL org.opencontainers.image.description="A simple Laravel Octane package with Queue and Scheduler"
+LABEL org.opencontainers.image.licenses="MIT"
+
 RUN apk add --no-cache \
     supervisor \
     nginx \
