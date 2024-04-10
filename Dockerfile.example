@@ -1,0 +1,23 @@
+FROM node as build-node
+WORKDIR /app
+ADD ./www /app
+RUN mkdir -p /app/public/build && \
+    npm install && \
+    npm run build
+
+
+
+FROM ghcr.io/sajtiii/docker-laravel:11
+
+RUN apk add --no-cache composer
+
+ADD ./www /srv/http
+COPY --from=build-node /app/public/build /srv/http/public/build
+
+RUN composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader && \
+    apk del composer
+
+
+RUN mkdir -p /srv/http/storage/logs && \
+    chown nginx:nginx /srv/http/storage/logs -R && \
+    chown nginx:nginx /srv/http/public/build -R
