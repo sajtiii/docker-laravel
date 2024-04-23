@@ -7,7 +7,7 @@ RUN mkdir -p /app/public/build && \
 
 
 
-FROM ghcr.io/sajtiii/docker-laravel:11
+FROM ghcr.io/sajtiii/docker-laravel:v11
 
 RUN apk add --no-cache composer
 
