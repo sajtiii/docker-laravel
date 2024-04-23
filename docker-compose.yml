@@ -2,14 +2,23 @@ version: '3'
 
 
 services:
-  app:
+  all:
     build:
       context: .
       dockerfile: Dockerfile.example
     ports:
       - "80:80"
     environment:
-      - CONTAINER_ROLE=app
+      - CONTAINER_ROLE=web,queue,scheduler
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.example
+    ports:
+      - "80:80"
+    environment:
+      - CONTAINER_ROLE=web
 
   queue:
     build:
