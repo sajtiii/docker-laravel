@@ -1,11 +1,5 @@
-role=${CONTAINER_ROLE:-app}
-
-
-if [ "$role" = "app" ]; then
+if [[ $CONTAINER_ROLE == *"web"*  ]]; then
     php artisan octane:status || exit 1
- 
-
-else
-    echo "No healthcheck configured for role [$role] ..."
-    exit 0
 fi
+
+exit 0;
