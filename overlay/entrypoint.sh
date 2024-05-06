@@ -15,14 +15,12 @@ fi
 
 # Optimize app if running in production
 if [ "${APP_ENV:-production}" = "production" ] ; then
-    echo "Caching config, routes and views ..."
-    php /srv/http/artisan config:cache
-    php /srv/http/artisan route:cache
-    php /srv/http/artisan view:cache
+    echo "Optimizing application ..."
+    php /srv/http/artisan optimize
 fi
 
-# Set default role
-export CONTAINER_ROLE=${CONTAINER_ROLE:=web,queue,scheduler}
+# Set default env vars
+export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
 
 QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=3 --tries=3 --max-time=3600"
 SCHEDULER_COMMAND="while [ true ]; do php /srv/http/artisan schedule:run --verbose --no-interaction & sleep 60; done"
@@ -77,5 +75,4 @@ else
     fi
 
     exec supervisord -n -c /etc/supervisord.conf
-
 fi
