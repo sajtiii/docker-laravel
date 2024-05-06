@@ -3,52 +3,47 @@ FROM php:8.3-cli-alpine
 ENV TZ=UTC
 
 LABEL org.opencontainers.image.source=https://github.com/sajtiii/docker-laravel
-LABEL org.opencontainers.image.description="A simple Laravel Octane package with Queue and Scheduler"
+LABEL org.opencontainers.image.description="A simple Laravel Octane container with Queue and Scheduler"
 LABEL org.opencontainers.image.licenses="MIT"
+
+ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
 
 RUN apk add --no-cache \
     supervisor \
     nginx \
     nginx-mod-http-headers-more \
     nginx-mod-http-brotli \
-    autoconf \
+    curl
+
+# Packages required to run Octane (& Redis)
+RUN install-php-extensions \
+    pcntl \
+    swoole
+
+# Packages required to run Laravel
+RUN install-php-extensions \   
+    ctype \
     curl \
-    tzdata \
-    sqlite-dev \
-    gcc \
-    make \
-    g++ \
-    zlib-dev
+    dom \
+    fileinfo \
+    mbstring \
+    openssl \
+    pdo \
+    pdo_mysql \
+    pdo_sqlite \
+    pdo_pgsql \
+    session \
+    tokenizer \
+    xml
 
-RUN docker-php-ext-install pcntl && \
-    pecl install swoole redis && \
-    docker-php-ext-enable swoole redis
+# Commonly used extensions
+RUN install-php-extensions \
+    zip \
+    intl \
+    exif \
+    gd
 
-RUN apk add --no-cache \
-    # php-session \
-    php-tokenizer \
-    php-xml \
-    php-ctype \
-    php-curl \
-    php-dom \
-    php-fileinfo \
-    php-mbstring \
-    php-openssl \
-    php-pdo \
-    php-pdo_mysql \
-    php-pdo_sqlite \
-    php-sqlite3 \
-    php-session \
-    php-tokenizer \
-    php-ctype \
-    php-xmlwriter \
-    php-xmlreader \
-    php-simplexml \
-    php-intl \
-    php-exif
-
-RUN docker-php-ext-install mysqli pdo_mysql pdo_sqlite
-
+    
 WORKDIR /srv/http
 
 ADD overlay/ /
