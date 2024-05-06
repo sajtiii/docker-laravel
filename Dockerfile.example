@@ -9,14 +9,12 @@ RUN mkdir -p /app/public/build && \
 
 FROM ghcr.io/sajtiii/docker-laravel:v11
 
-RUN apk add --no-cache composer
-
 ADD ./www /srv/http
 COPY --from=build-node /app/public/build /srv/http/public/build
 
-RUN composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader && \
-    apk del composer
-
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer && \
+    composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader && \
+    rm -f /usr/bin/composer
 
 RUN mkdir -p /srv/http/storage/logs && \
     chown nginx:nginx /srv/http/storage/logs -R && \
