@@ -13,7 +13,7 @@ services:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "80:80"
+      - "81:80"
     environment:
       - CONTAINER_ROLE=web
 

@@ -22,14 +22,18 @@ fi
 # Set default env vars
 export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
 
-QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=3 --tries=3 --max-time=3600"
-SCHEDULER_COMMAND="while [ true ]; do php /srv/http/artisan schedule:run --verbose --no-interaction & sleep 60; done"
+echo "Container role is: ${CONTAINER_ROLE}"
+
+QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES:-3} --max-time=${QUEUE_TIMEOUT:-7200} --no-interaction"
+SCHEDULER_COMMAND="php /srv/http/artisan schedule:work --verbose --no-interaction"
 
 if [ "${CONTAINER_ROLE}" = "queue" ]; then
-    exit $(QUEUE_COMMAND)
+    echo "Starting queue service ..."
+    eval "${QUEUE_COMMAND}"
  
 elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
-    exit $(SCHEDULER_COMMAND)
+    echo "Starting scheduler service ..."
+    eval "${SCHEDULER_COMMAND}"
  
 elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     echo "Executing custom command [$@] ..."
@@ -38,6 +42,7 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
 
 else
     if [[ $CONTAINER_ROLE == *"web"* ]]; then
+        echo "Installing web service ..."
         echo "[program:nginx]" >> /etc/supervisord.conf
         echo "command=/usr/sbin/nginx -g 'daemon off;'" >> /etc/supervisord.conf
         echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
@@ -55,6 +60,7 @@ else
     fi
 
     if [[ $CONTAINER_ROLE == *"queue"* ]]; then
+        echo "Installing queue service ..."
         echo "[program:queue]" >> /etc/supervisord.conf
         echo "command=$QUEUE_COMMAND" >> /etc/supervisord.conf
         echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
@@ -65,6 +71,7 @@ else
     fi
 
     if [[ $CONTAINER_ROLE == *"scheduler"* ]]; then
+        echo "Installing scheduler service ..."
         echo "[program:scheduler]" >> /etc/supervisord.conf
         echo "command=sh -c \"$SCHEDULER_COMMAND\"" >> /etc/supervisord.conf
         echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
@@ -74,5 +81,6 @@ else
         echo "" >> /etc/supervisord.conf
     fi
 
+    echo "Starting installed services ..."
     exec supervisord -n -c /etc/supervisord.conf
 fi
