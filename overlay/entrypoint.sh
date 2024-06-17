@@ -24,7 +24,7 @@ export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
 
 echo "Container role is: ${CONTAINER_ROLE}"
 
-QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES:-3} --max-time=${QUEUE_TIMEOUT:-7200} --no-interaction"
+QUEUE_COMMAND="php -d memory_limit=${QUEUE_MEMORY_LIMIT:-512}M /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES:-3} --max-time=${QUEUE_TIMEOUT:-7200} --memory=${QUEUE_MEMORY_LIMIT:-512} --no-interaction"
 SCHEDULER_COMMAND="php /srv/http/artisan schedule:work --verbose --no-interaction"
 
 if [ "${CONTAINER_ROLE}" = "queue" ]; then
