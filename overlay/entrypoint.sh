@@ -67,8 +67,6 @@ if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     php /srv/http/artisan view:cache
 fi
 
-echo "Container role is: ${CONTAINER_ROLE}"
-
 QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
 SCHEDULER_COMMAND="php /srv/http/artisan schedule:work --verbose --no-interaction"
 
