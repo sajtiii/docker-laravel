@@ -1,5 +1,41 @@
 #!/bin/sh -e
 
+# Set default env vars
+export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
+
+export APP_ENV=${APP_ENV:-production}
+
+export AUTO_MIGRATE=${AUTO_MIGRATE:-false}
+
+export QUEUES=${QUEUES:-high,medium,notification,default,low}
+export QUEUE_TRIES=${QUEUE_TRIES:-3}
+export QUEUE_TIMEOUT=${QUEUE_TIMEOUT:-7200}
+
+export OPTIMIZE_BY_DEFAULT=false
+if [ "${APP_ENV}" = "production" ] ; then
+    export OPTIMIZE_BY_DEFAULT=true
+fi
+export OPTIMIZE_CONFIG=${OPTIMIZE_CONFIG:-${OPTIMIZE_BY_DEFAULT}}
+export OPTIMIZE_EVENTS=${OPTIMIZE_EVENTS:-${OPTIMIZE_BY_DEFAULT}}
+export OPTIMIZE_ROUTES=${OPTIMIZE_ROUTES:-${OPTIMIZE_BY_DEFAULT}}
+export OPTIMIZE_VIEWS=${OPTIMIZE_VIEWS:-${OPTIMIZE_BY_DEFAULT}}
+
+echo ""
+echo "Dumping defaulted env vars ..."
+echo "Container role is: ${CONTAINER_ROLE}"
+echo "App environment is: ${APP_ENV}"
+echo "Auto migrate enabled: ${AUTO_MIGRATE}"
+echo "Queues: ${QUEUES}"
+echo "Queue tries: ${QUEUE_TRIES}"
+echo "Queue timeout (s): ${QUEUE_TIMEOUT}"
+echo "Optimize config enabled: ${OPTIMIZE_CONFIG}"
+echo "Optimize events enabled: ${OPTIMIZE_EVENTS}"
+echo "Optimize routes enable: ${OPTIMIZE_ROUTES}"
+echo "Optimize views enabled: ${OPTIMIZE_VIEWS}"
+echo ""
+echo ""
+echo ""
+
 # Run startup script if found
 if [ -f /srv/http/startup.sh ] ; then
     echo "Running startup script [/srv/http/startup.sh] ..."
@@ -8,23 +44,30 @@ if [ -f /srv/http/startup.sh ] ; then
 fi
 
 # Migrate DB if something changed
-if [ "${AUTO_MIGRATE:-false}" = "true" ] ; then
+if [ "${AUTO_MIGRATE}" = true ] ; then
     echo "Running migrations ..."
     php /srv/http/artisan migrate --force
 fi
 
 # Optimize app if running in production
-if [ "${APP_ENV:-production}" = "production" ] ; then
-    echo "Optimizing application ..."
-    php /srv/http/artisan optimize
+if [ "${OPTIMIZE_CONFIG}" = true ] ; then
+    echo "Optimizing configuration ..."
+    php /srv/http/artisan config:cache
+fi
+if [ "${OPTIMIZE_EVENTS}" = true ] ; then
+    echo "Optimizing events ..."
+    php /srv/http/artisan event:cache
+fi
+if [ "${OPTIMIZE_ROUTES}" = true ] ; then
+    echo "Optimizing routes ..."
+    php /srv/http/artisan route:cache
+fi
+if [ "${OPTIMIZE_VIEWS}" = true ] ; then
+    echo "Optimizing views ..."
+    php /srv/http/artisan view:cache
 fi
 
-# Set default env vars
-export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
-
-echo "Container role is: ${CONTAINER_ROLE}"
-
-QUEUE_COMMAND="php -d memory_limit=${QUEUE_MEMORY_LIMIT:-512}M /srv/http/artisan queue:work --verbose --queue=${QUEUES:-high,medium,notification,default,low} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES:-3} --max-time=${QUEUE_TIMEOUT:-7200} --memory=${QUEUE_MEMORY_LIMIT:-512} --no-interaction"
+QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
 SCHEDULER_COMMAND="php /srv/http/artisan schedule:work --verbose --no-interaction"
 
 if [ "${CONTAINER_ROLE}" = "queue" ]; then

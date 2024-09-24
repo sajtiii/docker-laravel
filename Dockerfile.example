@@ -1,4 +1,4 @@
-FROM node as build-node
+FROM node AS build-node
 WORKDIR /app
 ADD ./www /app
 RUN mkdir -p /app/public/build && \

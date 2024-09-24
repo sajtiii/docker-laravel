@@ -56,6 +56,6 @@ RUN mkdir -p /var/log/supervisor && \
 ENTRYPOINT [ "/entrypoint.sh" ]
 CMD [ "" ]
 
-HEALTHCHECK --start-period=5s --interval=10s --timeout=2s --retries=5 CMD /healthcheck.sh
+HEALTHCHECK --start-period=30s --interval=10s --timeout=2s --retries=5 CMD /healthcheck.sh
 
 EXPOSE 80
