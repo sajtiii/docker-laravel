@@ -4,7 +4,7 @@ trigger() {
     if [ -f "/srv/http/$1.sh" ] ; then
         echo "Running $1 script [/srv/http/$1.sh] ..."
         chmod +x /srv/http/$1.sh
-        sh /srv/http/$1.sh
+        source /srv/http/$1.sh
     fi
 }
 
