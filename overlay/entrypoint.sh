@@ -1,5 +1,15 @@
 #!/bin/sh -e
 
+trigger() {
+    if [ -f "/srv/http/$1.sh" ] ; then
+        echo "Running $1 script [/srv/http/$1.sh] ..."
+        chmod +x /srv/http/$1.sh
+        sh /srv/http/$1.sh
+    fi
+}
+
+trigger preconfig
+
 # Set default env vars
 export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
 
@@ -20,6 +30,8 @@ export OPTIMIZE_EVENTS=${OPTIMIZE_EVENTS:-${OPTIMIZE_BY_DEFAULT}}
 export OPTIMIZE_ROUTES=${OPTIMIZE_ROUTES:-${OPTIMIZE_BY_DEFAULT}}
 export OPTIMIZE_VIEWS=${OPTIMIZE_VIEWS:-${OPTIMIZE_BY_DEFAULT}}
 
+trigger postconfig
+
 echo ""
 echo "Dumping defaulted env vars ..."
 echo "Container role is: ${CONTAINER_ROLE}"
@@ -27,7 +39,7 @@ echo "App environment is: ${APP_ENV}"
 echo "Auto migrate enabled: ${AUTO_MIGRATE}"
 echo "Queues: ${QUEUES}"
 echo "Queue tries: ${QUEUE_TRIES}"
-echo "Queue timeout (s): ${QUEUE_TIMEOUT}"
+echo "Queue timeout [s]: ${QUEUE_TIMEOUT}"
 echo "Optimize config enabled: ${OPTIMIZE_CONFIG}"
 echo "Optimize events enabled: ${OPTIMIZE_EVENTS}"
 echo "Optimize routes enable: ${OPTIMIZE_ROUTES}"
@@ -36,20 +48,17 @@ echo ""
 echo ""
 echo ""
 
-# Run startup script if found
-if [ -f /srv/http/startup.sh ] ; then
-    echo "Running startup script [/srv/http/startup.sh] ..."
-    chmod +x /srv/http/startup.sh
-    sh /srv/http/startup.sh
-fi
-
 # Migrate DB if something changed
 if [ "${AUTO_MIGRATE}" = true ] ; then
+    trigger premigrate
     echo "Running migrations ..."
     php /srv/http/artisan migrate --force
+    trigger postmigrate
 fi
 
-# Optimize app if running in production
+trigger prestart
+
+# Optimize app if enabled
 if [ "${OPTIMIZE_CONFIG}" = true ] ; then
     echo "Optimizing configuration ..."
     php /srv/http/artisan config:cache
@@ -125,5 +134,8 @@ else
     fi
 
     echo "Starting installed services ..."
+    echo ""
     exec supervisord -n -c /etc/supervisord.conf
 fi
+
+trigger poststart
