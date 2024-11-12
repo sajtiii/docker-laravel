@@ -1,26 +1,16 @@
 #!/bin/sh -e
 
+source /configuration.sh
+
 trigger() {
-    if [ -f "/srv/http/$1.sh" ] ; then
-        echo "Running $1 script [/srv/http/$1.sh] ..."
-        chmod +x /srv/http/$1.sh
-        source /srv/http/$1.sh
+    if [ -f "/${APP_PATH}/${1}.sh" ] ; then
+        echo "Running $1 script [/${APP_PATH}/${1}.sh] ..."
+        chmod +x /${APP_PATH}/${1}.sh
+        source /${APP_PATH}/${1}.sh
     fi
 }
 
-trigger preconfig
-
-# Set default env vars
-export CONTAINER_ROLE=${CONTAINER_ROLE:-web,queue,scheduler}
-
-export APP_ENV=${APP_ENV:-production}
-
-export AUTO_MIGRATE=${AUTO_MIGRATE:-false}
-
-export QUEUES=${QUEUES:-high,medium,notification,default,low}
-export QUEUE_TRIES=${QUEUE_TRIES:-3}
-export QUEUE_TIMEOUT=${QUEUE_TIMEOUT:-7200}
-
+# Optimization flags
 export OPTIMIZE_BY_DEFAULT=false
 if [ "${APP_ENV}" = "production" ] ; then
     export OPTIMIZE_BY_DEFAULT=true
@@ -30,13 +20,43 @@ export OPTIMIZE_EVENTS=${OPTIMIZE_EVENTS:-${OPTIMIZE_BY_DEFAULT}}
 export OPTIMIZE_ROUTES=${OPTIMIZE_ROUTES:-${OPTIMIZE_BY_DEFAULT}}
 export OPTIMIZE_VIEWS=${OPTIMIZE_VIEWS:-${OPTIMIZE_BY_DEFAULT}}
 
+
+export CADDY_INDEX_FILE="index.php"
+if [ "${OCTANE_ENABLED}" = true ] && [ ! -f "${APP_PATH}/public/frankenphp-worker.php" ] ; then
+    echo "####################################################################"
+    echo "#                                                                  #"
+    echo "#  Octane is enabled, but no worker file found. Disabling Octane.  #"
+    echo "#                                                                  #"
+    echo "####################################################################"
+    export OCTANE_ENABLED=false
+fi
+
+if [ "${OCTANE_ENABLED}" = true ] ; then
+    export OCTANE_WORKER_COUNT=${OCTANE_WORKER_COUNT:-4}
+    export CADDY_INDEX_FILE="frankenphp-worker.php"
+    export CADDY_FRANKENPHP_CONFIG="worker \"${APP_PATH}/public/frankenphp-worker.php\" ${OCTANE_WORKER_COUNT}"
+fi
+
+if [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
+    echo "####################################################################"
+    echo "#                                                                  #"
+    echo "#  Panic! App port [${PORT}] cannot be the same as admin port [${CADDY_ADMIN_PORT}]!  #"
+    echo "#                                                                  #"
+    echo "####################################################################"
+    exit 1
+fi
+
+
 trigger postconfig
 
 echo ""
 echo "Dumping defaulted env vars ..."
 echo "Container role is: ${CONTAINER_ROLE}"
+echo "Running with octane: ${OCTANE_ENABLED}"
 echo "App environment is: ${APP_ENV}"
 echo "Auto migrate enabled: ${AUTO_MIGRATE}"
+echo "Web running on port: ${PORT}"
+echo "Caddy administration port: ${CADDY_ADMIN_PORT}"
 echo "Queues: ${QUEUES}"
 echo "Queue tries: ${QUEUE_TRIES}"
 echo "Queue timeout [s]: ${QUEUE_TIMEOUT}"
@@ -52,7 +72,7 @@ echo ""
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate
     echo "Running migrations ..."
-    php /srv/http/artisan migrate --force
+    php ${APP_PATH}/artisan migrate --force
     trigger postmigrate
 fi
 
@@ -61,25 +81,33 @@ trigger prestart
 # Optimize app if enabled
 if [ "${OPTIMIZE_CONFIG}" = true ] ; then
     echo "Optimizing configuration ..."
-    php /srv/http/artisan config:cache
+    php ${APP_PATH}/artisan config:cache
 fi
 if [ "${OPTIMIZE_EVENTS}" = true ] ; then
     echo "Optimizing events ..."
-    php /srv/http/artisan event:cache
+    php ${APP_PATH}/artisan event:cache
 fi
 if [ "${OPTIMIZE_ROUTES}" = true ] ; then
     echo "Optimizing routes ..."
-    php /srv/http/artisan route:cache
+    php ${APP_PATH}/artisan route:cache
 fi
 if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     echo "Optimizing views ..."
-    php /srv/http/artisan view:cache
+    php ${APP_PATH}/artisan view:cache
 fi
 
-QUEUE_COMMAND="php /srv/http/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
-SCHEDULER_COMMAND="php /srv/http/artisan schedule:work --verbose --no-interaction"
+WEB_COMMAND="docker-php-entrypoint --config /etc/caddy/Caddyfile --adapter caddyfile"
+if [ "${OCTANE_ENABLED}" = true ] ; then
+    WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
+fi
+QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
+SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:work --verbose --no-interaction"
 
-if [ "${CONTAINER_ROLE}" = "queue" ]; then
+if [ "${CONTAINER_ROLE}" = "web" ]; then
+    echo "Starting web service ..."
+    eval "${WEB_COMMAND}"
+
+elif [ "${CONTAINER_ROLE}" = "queue" ]; then
     echo "Starting queue service ..."
     eval "${QUEUE_COMMAND}"
  
@@ -95,15 +123,8 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
 else
     if [[ $CONTAINER_ROLE == *"web"* ]]; then
         echo "Installing web service ..."
-        echo "[program:nginx]" >> /etc/supervisord.conf
-        echo "command=/usr/sbin/nginx -g 'daemon off;'" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
-        echo "[program:octane]" >> /etc/supervisord.conf
-        echo "command=php /srv/http/artisan octane:start --server=swoole --workers=4 --task-workers=6 --port=8000" >> /etc/supervisord.conf
+        echo "[program:web]" >> /etc/supervisord.conf
+        echo "command=$WEB_COMMAND" >> /etc/supervisord.conf
         echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
         echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
         echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
@@ -137,5 +158,3 @@ else
     echo ""
     exec supervisord -n -c /etc/supervisord.conf
 fi
-
-trigger poststart
