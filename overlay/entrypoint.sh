@@ -1,59 +1,38 @@
 #!/bin/sh -e
 
-source /configuration.sh
+source /scripts/functions.sh
+load_config commons
+load_service_configs
+load_config optimization
 
-trigger() {
-    if [ -f "/${APP_PATH}/${1}.sh" ] ; then
-        echo "Running $1 script [/${APP_PATH}/${1}.sh] ..."
-        chmod +x /${APP_PATH}/${1}.sh
-        source /${APP_PATH}/${1}.sh
-    fi
-}
+# Database migration flag
+export AUTO_MIGRATE=${AUTO_MIGRATE:-false}
 
-# Optimization flags
-export OPTIMIZE_BY_DEFAULT=false
-if [ "${APP_ENV}" = "production" ] ; then
-    export OPTIMIZE_BY_DEFAULT=true
+if [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
+    message "Panic! App port [${PORT}] cannot be the same as admin port [${CADDY_ADMIN_PORT}]!"
+    exit 1
 fi
-export OPTIMIZE_CONFIG=${OPTIMIZE_CONFIG:-${OPTIMIZE_BY_DEFAULT}}
-export OPTIMIZE_EVENTS=${OPTIMIZE_EVENTS:-${OPTIMIZE_BY_DEFAULT}}
-export OPTIMIZE_ROUTES=${OPTIMIZE_ROUTES:-${OPTIMIZE_BY_DEFAULT}}
-export OPTIMIZE_VIEWS=${OPTIMIZE_VIEWS:-${OPTIMIZE_BY_DEFAULT}}
 
+if [ ! -z "${MESSAGE_FROM_CONFIG}" ] ; then
+    message "${MESSAGE_FROM_CONFIG}"
+fi
 
 export CADDY_INDEX_FILE="index.php"
-if [ "${OCTANE_ENABLED}" = true ] && [ ! -f "${APP_PATH}/public/frankenphp-worker.php" ] ; then
-    echo "####################################################################"
-    echo "#                                                                  #"
-    echo "#  Octane is enabled, but no worker file found. Disabling Octane.  #"
-    echo "#                                                                  #"
-    echo "####################################################################"
-    export OCTANE_ENABLED=false
-fi
-
 if [ "${OCTANE_ENABLED}" = true ] ; then
     export OCTANE_WORKER_COUNT=${OCTANE_WORKER_COUNT:-4}
     export CADDY_INDEX_FILE="frankenphp-worker.php"
     export CADDY_FRANKENPHP_CONFIG="worker \"${APP_PATH}/public/frankenphp-worker.php\" ${OCTANE_WORKER_COUNT}"
 fi
 
-if [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
-    echo "####################################################################"
-    echo "#                                                                  #"
-    echo "#  Panic! App port [${PORT}] cannot be the same as admin port [${CADDY_ADMIN_PORT}]!  #"
-    echo "#                                                                  #"
-    echo "####################################################################"
-    exit 1
-fi
-
 
 trigger postconfig
 
 echo ""
-echo "Dumping defaulted env vars ..."
+echo "Dumping configuration ..."
 echo "Container role is: ${CONTAINER_ROLE}"
+echo "Application path is: ${APP_PATH}"
+echo "Application environment is: ${APP_ENV}"
 echo "Running with octane: ${OCTANE_ENABLED}"
-echo "App environment is: ${APP_ENV}"
 echo "Auto migrate enabled: ${AUTO_MIGRATE}"
 echo "Web running on port: ${PORT}"
 echo "Caddy administration port: ${CADDY_ADMIN_PORT}"
@@ -68,7 +47,7 @@ echo ""
 echo ""
 echo ""
 
-# Migrate DB if something changed
+# Migrate DB if something changed and auto migrate is enabled
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate
     echo "Running migrations ..."
@@ -96,6 +75,7 @@ if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     php ${APP_PATH}/artisan view:cache
 fi
 
+# Define commands
 WEB_COMMAND="docker-php-entrypoint --config /etc/caddy/Caddyfile --adapter caddyfile"
 if [ "${OCTANE_ENABLED}" = true ] ; then
     WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
@@ -103,6 +83,7 @@ fi
 QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
 SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:work --verbose --no-interaction"
 
+# Start necessary services
 if [ "${CONTAINER_ROLE}" = "web" ]; then
     echo "Starting web service ..."
     eval "${WEB_COMMAND}"

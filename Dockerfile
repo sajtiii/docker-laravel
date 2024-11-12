@@ -46,9 +46,9 @@ WORKDIR /srv/http
 ADD overlay/ /
 
 RUN mkdir -p /var/log/supervisor && \
-    chmod +x /configuration.sh && \
     chmod +x /entrypoint.sh && \
-    chmod +x /healthcheck.sh
+    chmod +x /healthcheck.sh && \
+    chmod -R +x /scripts/*
 
 
 ENTRYPOINT [ "/entrypoint.sh" ]
