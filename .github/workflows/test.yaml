@@ -1,0 +1,41 @@
+name: Test
+
+on:
+  pull_request:
+
+jobs:
+  build-base:
+    name: Build base container
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          tags: test-base
+
+  build-test:
+    name: Build test container
+    runs-on: ubuntu-latest
+    container:
+      image: test-base
+    steps:
+      - name: Install composer
+        run: |
+          curl -sS https://getcomposer.org/installer | php
+          mv composer.phar /usr/local/bin/composer
+      
+      - name: Install empty Laravel project
+        run: |
+          composer create-project --prefer-dist laravel/laravel laravel
+
+      - name: Run tests in Laravel project
+        run: |
+          cd laravel
+          php artisan test
