@@ -36,10 +36,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.3' }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.3' }}
-            type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.3' }}
-            type=edge,branch=main,enable=${{ matrix.php == '8.3' }}
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{major}}
+            type=edge,branch=main
 
             type=semver,pattern=v{{version}},suffix=-php${{ matrix.php }}
             type=semver,pattern=v{{major}}.{{minor}},suffix=-php${{ matrix.php }}
@@ -48,7 +48,7 @@ jobs:
             type=ref,event=pr,suffix=-php${{ matrix.php }}
       
       - name: Echo tags
-        run: echo "${{ steps.meta.outputs.tags }}"
+        run: echo "${{ toJson(steps.meta.outputs.tags) }}"
 
       # - name: Log in to GHCR.io
       #   if: github.event_name != 'pull_request'
