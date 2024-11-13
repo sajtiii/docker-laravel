@@ -1,9 +1,12 @@
-FROM dunglas/frankenphp:php8.3-alpine
+ARG PHP_VERSION="8.3"
+
+FROM dunglas/frankenphp:php${PHP_VERSION}-alpine
 
 ENV TZ=UTC
+ENV PHP_VERSION=${PHP_VERSION}
 
 LABEL org.opencontainers.image.source=https://github.com/sajtiii/docker-laravel
-LABEL org.opencontainers.image.description="A simple Laravel Octane container with Queue and Scheduler"
+LABEL org.opencontainers.image.description="A simple Laravel container with Octane, Queue and Scheduler"
 LABEL org.opencontainers.image.licenses="MIT"
 
 ADD --chmod=0755 https://github.com/mlocati/docker-php-extension-installer/releases/latest/download/install-php-extensions /usr/local/bin/
@@ -56,4 +59,4 @@ CMD [ "" ]
 
 EXPOSE 80
 
-HEALTHCHECK --start-period=30s --interval=10s --timeout=2s --retries=5 CMD /healthcheck.sh
+HEALTHCHECK --start-period=30s --start-interval=5s --interval=10s --timeout=2s --retries=5 CMD /healthcheck.sh

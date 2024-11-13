@@ -12,9 +12,8 @@ fi
 
 if [ "${WEB_HEALTHCHECK_ENABLED}" = true ] && is_web; then
     if [ "${OCTANE_ENABLED}" = true ] ; then
-        php ${APP_PATH}/artisan octane:status || exit 1
+        php ${APP_PATH}/artisan octane:status > /dev/null || exit 1
     fi
-    echo "Running web healthcheck ..."
     curl --fail --silent --max-time ${WEB_HEALTHCHECK_TIMEOUT} "${WEB_HEALTHCHECK_URL}" > /dev/null || exit 1
 fi
 

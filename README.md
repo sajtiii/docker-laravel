@@ -4,6 +4,12 @@ It's just a simple docker image used to run laravel applications with octane. \
 It also incorporates queue and scheduler modes, that can be selected using the `CONTAINER_ROLE` environment variable.
 `CONTAINER_ROLE` can be any of the following: `web`, `queue`, `scheduler` or `cmd`, or a combination of them, like: `web,scheduler`, `web,queue`, `queue,scheduler` or `web,queue,scheduler`
 
+## Change in versioning schema
+
+
+## Compatibility matrix
+
+
 #### For Development
 A new laravel app with octane installed is required inside the `www` folder. \
 To install a fresh laravel in that folder run the following commands:

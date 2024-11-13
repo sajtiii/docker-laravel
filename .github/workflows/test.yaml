@@ -4,8 +4,8 @@ on:
   pull_request:
 
 jobs:
-  build:
-    name: Build test container
+  test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
