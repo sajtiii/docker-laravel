@@ -4,38 +4,44 @@ on:
   pull_request:
 
 jobs:
-  build-base:
-    name: Build base container
+  build:
+    name: Build test container
     runs-on: ubuntu-latest
-    permissions:
-      packages: write
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: false
-          tags: test-base
-
-  build-test:
-    name: Build test container
-    runs-on: ubuntu-latest
-    container:
-      image: test-base
-    steps:
-      - name: Install composer
+      - name: Extend Dockerfile with laravel and npm installation
         run: |
-          curl -sS https://getcomposer.org/installer | php
-          mv composer.phar /usr/local/bin/composer
+          echo "" >> Dockerfile
+          echo "RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer" >> Dockerfile
+          echo "RUN apk add --no-cache npm" >> Dockerfile
+          echo "RUN composer create-project --prefer-dist laravel/laravel /srv/http" >> Dockerfile
+          echo "WORKDIR /srv/http" >> Dockerfile
+          echo "RUN npm install && npm run build" >> Dockerfile
+          echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown www-data:www-data /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown www-data:www-data /srv/http/public/build" >> Dockerfile
+
+      - name: Build Docker image
+        run: |
+          docker build . -t test
+
+      - name: Run Docker container
+        timeout-minutes: 1
+        run: |
+          docker run --rm --detach --publish 8888:80 --name test test
+          while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
       
-      - name: Install empty Laravel project
+      - name: Check if container is available
         run: |
-          composer create-project --prefer-dist laravel/laravel laravel
+          curl --fail --silent http://localhost:8888 > /dev/null
 
-      - name: Run tests in Laravel project
+      - name: Run tests
         run: |
-          cd laravel
-          php artisan test
+          docker exec test php artisan test
+    
+      - name: Stop Docker container
+        if: always()
+        run: |
+          docker stop test

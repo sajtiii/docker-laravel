@@ -1,59 +1,59 @@
 {
-	{$CADDY_GLOBAL_OPTIONS}
-	
-	auto_https off
+    {$CADDY_GLOBAL_OPTIONS}
 
-	admin :{$CADDY_ADMIN_PORT}
+    auto_https off
 
-	frankenphp {
-		{$CADDY_FRANKENPHP_CONFIG}
-	}
+    admin :{$CADDY_ADMIN_PORT}
+
+    frankenphp {
+        {$CADDY_FRANKENPHP_CONFIG}
+    }
 }
 
 http://:{$PORT} {
-	route {
-		root * "{$APP_PATH}/public"
-		
-		encode zstd br gzip
+    route {
+        root * "{$APP_PATH}/public"
 
-		@static {
-			path *.css *.js
-		}
+        encode zstd br gzip
 
-		@image {
-			path *.png *.jpg *.jpeg *.gif *.webp *.svg
-		}
+        @static {
+            path *.css *.js
+        }
 
-		@font {
-			path *.woff *.woff2 *.ttf
-		}
+        @image {
+            path *.png *.jpg *.jpeg *.gif *.webp *.svg
+        }
 
-		header @static ?Cache-Control "public, max-age=604800, immutable"
-		header @image ?Cache-Control "public, max-age=604800, immutable"
-		header @font ?Cache-Control "public, max-age=604800, immutable"
-		
-		header -Server
-		header -X-Generator
-		header -X-Powered-By
+        @font {
+            path *.woff *.woff2 *.ttf
+        }
 
-		# TODO: Figure out CSP
-		# header ?Content-Security-Policy "default-src 'none'; base-uri 'self'; block-all-mixed-content; connect-src 'self' https:; form-action 'self'; font-src 'self' https: data:; frame-ancestors 'self'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecure-requests"
-    	header ?Cross-Origin-Embedder-Policy "require-corp"
-		header ?Cross-Origin-Opener-Policy "same-origin"
-    	header ?Cross-Origin-Resource-Policy "same-site"
-    	header ?Referrer-Policy "strict-origin-when-cross-origin"
-    	header ?X-Content-Type-Options "nosniff"
-    	header ?X-Frame-Options "DENY"
-    	header ?X-XSS-Protection "1; mode=block"
+        header @static ?Cache-Control "public, max-age=604800, immutable"
+        header @image ?Cache-Control "public, max-age=604800, immutable"
+        header @font ?Cache-Control "public, max-age=604800, immutable"
 
-		# Mercure configuration is injected here...
-		{$CADDY_SERVER_EXTRA_DIRECTIVES}
+        header -Server
+        header -X-Generator
+        header -X-Powered-By
 
-		php_server {
-			index {$CADDY_INDEX_FILE}
+        # TODO: Figure out CSP
+        # header ?Content-Security-Policy "default-src 'none'; base-uri 'self'; block-all-mixed-content; connect-src 'self' https:; form-action 'self'; font-src 'self' https: data:; frame-ancestors 'self'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecure-requests"
+        header ?Cross-Origin-Embedder-Policy "require-corp"
+        header ?Cross-Origin-Opener-Policy "same-origin"
+        header ?Cross-Origin-Resource-Policy "same-site"
+        header ?Referrer-Policy "strict-origin-when-cross-origin"
+        header ?X-Content-Type-Options "nosniff"
+        header ?X-Frame-Options "DENY"
+        header ?X-XSS-Protection "1; mode=block"
 
-			# Required for the public/storage/ directory...
-			resolve_root_symlink
-		}
-	}
+        # Mercure configuration is injected here...
+        {$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+        php_server {
+            index {$CADDY_INDEX_FILE}
+
+            # Required for the public/storage/ directory...
+            resolve_root_symlink
+        }
+    }
 }

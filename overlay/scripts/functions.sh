@@ -2,10 +2,22 @@
 
 trigger() {
     if [ -f "/${APP_PATH}/${1}.sh" ] ; then
-        echo "Running $1 script [/${APP_PATH}/${1}.sh] ..."
+        echo "Triggering $1 script [/${APP_PATH}/${1}.sh] ..."
         chmod +x /${APP_PATH}/${1}.sh
         source /${APP_PATH}/${1}.sh
     fi
+}
+
+is_web() {
+    [[ $CONTAINER_ROLE == *"web"* ]]
+}
+
+is_queue() {
+    [[ $CONTAINER_ROLE == *"queue"* ]]
+}
+
+is_scheduler() {
+    [[ $CONTAINER_ROLE == *"scheduler"* ]]
 }
 
 message() {
@@ -34,13 +46,13 @@ load_config() {
 }
 
 load_service_configs() {
-    if [[ "${CONTAINER_ROLE}" == *"web"* ]]; then
+    if is_web; then
         load_config web
     fi
-    if [[ "${CONTAINER_ROLE}" == *"queue"* ]]; then
+    if is_queue; then
         load_config queue
     fi
-    if [[ "${CONTAINER_ROLE}" == *"scheduler"* ]]; then
+    if is_scheduler; then
         load_config scheduler
     fi
 }

@@ -1,15 +1,16 @@
 #!/bin/sh -e
 
 source /scripts/functions.sh
-load_config commons
+load_config common
 load_service_configs
 load_config optimization
+
 
 # Database migration flag
 export AUTO_MIGRATE=${AUTO_MIGRATE:-false}
 
 if [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
-    message "Panic! App port [${PORT}] cannot be the same as admin port [${CADDY_ADMIN_PORT}]!"
+    message "Error! App port [${PORT}] cannot be the same as caddy admin port."
     exit 1
 fi
 
@@ -29,20 +30,24 @@ trigger postconfig
 
 echo ""
 echo "Dumping configuration ..."
-echo "Container role is: ${CONTAINER_ROLE}"
-echo "Application path is: ${APP_PATH}"
-echo "Application environment is: ${APP_ENV}"
-echo "Running with octane: ${OCTANE_ENABLED}"
-echo "Auto migrate enabled: ${AUTO_MIGRATE}"
-echo "Web running on port: ${PORT}"
-echo "Caddy administration port: ${CADDY_ADMIN_PORT}"
-echo "Queues: ${QUEUES}"
-echo "Queue tries: ${QUEUE_TRIES}"
-echo "Queue timeout [s]: ${QUEUE_TIMEOUT}"
-echo "Optimize config enabled: ${OPTIMIZE_CONFIG}"
-echo "Optimize events enabled: ${OPTIMIZE_EVENTS}"
-echo "Optimize routes enable: ${OPTIMIZE_ROUTES}"
-echo "Optimize views enabled: ${OPTIMIZE_VIEWS}"
+echo "Container role is:                ${CONTAINER_ROLE}"
+echo "Application path is:              ${APP_PATH}"
+echo "Application environment is:       ${APP_ENV}"
+echo "Auto migration enabled:           ${AUTO_MIGRATE}"
+if [ is_web ]; then
+    echo "Running with octane:              ${OCTANE_ENABLED}"
+    echo "Web running on port:              ${PORT}"
+    echo "Caddy administration port:        ${CADDY_ADMIN_PORT}"
+fi
+if [ is_queue ]; then
+    echo "Queues:                           ${QUEUES}"
+    echo "Queue tries:                      ${QUEUE_TRIES}"
+    echo "Queue timeout [s]:                ${QUEUE_TIMEOUT}"
+fi
+echo "Optimize config enabled:          ${OPTIMIZE_CONFIG}"
+echo "Optimize events enabled:          ${OPTIMIZE_EVENTS}"
+echo "Optimize routes enable:           ${OPTIMIZE_ROUTES}"
+echo "Optimize views enabled:           ${OPTIMIZE_VIEWS}"
 echo ""
 echo ""
 echo ""
@@ -102,7 +107,7 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     exit 0
 
 else
-    if [[ $CONTAINER_ROLE == *"web"* ]]; then
+    if is_web; then
         echo "Installing web service ..."
         echo "[program:web]" >> /etc/supervisord.conf
         echo "command=$WEB_COMMAND" >> /etc/supervisord.conf
@@ -113,7 +118,7 @@ else
         echo "" >> /etc/supervisord.conf
     fi
 
-    if [[ $CONTAINER_ROLE == *"queue"* ]]; then
+    if is_queue; then
         echo "Installing queue service ..."
         echo "[program:queue]" >> /etc/supervisord.conf
         echo "command=$QUEUE_COMMAND" >> /etc/supervisord.conf
@@ -124,7 +129,7 @@ else
         echo "" >> /etc/supervisord.conf
     fi
 
-    if [[ $CONTAINER_ROLE == *"scheduler"* ]]; then
+    if is_scheduler; then
         echo "Installing scheduler service ..."
         echo "[program:scheduler]" >> /etc/supervisord.conf
         echo "command=sh -c \"$SCHEDULER_COMMAND\"" >> /etc/supervisord.conf
