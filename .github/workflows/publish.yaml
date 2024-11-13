@@ -8,10 +8,9 @@ name: Publish
 on:
   push:
     branches:
-    - 'main'
+      - 'main'
   release:
     types: [released]
-  pull_request:
 
 
 env:
