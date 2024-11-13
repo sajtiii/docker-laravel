@@ -11,9 +11,15 @@ jobs:
       matrix:
         include:
           - php: "8.2"
-            laravel: ["9", "10", "11"]
+            laravel: "9"
+          - php: "8.2"
+            laravel: "10"
+          - php: "8.2"
+            laravel: "11"
           - php: "8.3"
-            laravel: ["10", "11"]
+            laravel: "10"
+          - php: "8.3"
+            laravel: "11"
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
