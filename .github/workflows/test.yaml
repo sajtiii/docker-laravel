@@ -7,6 +7,17 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - php: "8.0"
+            laravel: ["8", "9"]
+          - php: "8.1"
+            laravel: ["8", "9", "10"]
+          - php: "8.2"
+            laravel: ["9", "10", "11"]
+          - php: "8.3"
+            laravel: ["10", "11"]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
@@ -14,9 +25,10 @@ jobs:
       - name: Extend Dockerfile with laravel and npm installation
         run: |
           echo "" >> Dockerfile
+          echo "ARG LARAVEL_VERSION" >> Dockerfile
           echo "RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer" >> Dockerfile
           echo "RUN apk add --no-cache npm" >> Dockerfile
-          echo "RUN composer create-project --prefer-dist laravel/laravel /srv/http" >> Dockerfile
+          echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${LARAVEL_VERSION}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
           echo "RUN npm install && npm run build" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
@@ -25,7 +37,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build . -t test
+          docker build . -t test --build-arg PHP_VERSION=${{ matrix.php }} --build-arg LARAVEL_VERSION=${{ matrix.laravel }}
 
       - name: Run Docker container
         timeout-minutes: 1

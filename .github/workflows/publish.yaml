@@ -36,12 +36,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           tags: |
-            type=semver,pattern=v{{version}},enable={{ matrix.php == '8.3' }}
-            type=semver,pattern=v{{major}}.{{minor}},enable={{ matrix.php == '8.3' }}
-            type=semver,pattern=v{{major}},enable={{ matrix.php == '8.3' }}
-            type=edge,branch=main,enable={{ matrix.php == '8.3' }}
-            type=ref,event=pr,enable={{ matrix.php == '8.3' }}
-            
+            type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.3'}}
+            type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.3' }}
+            type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.3' }}
+            type=edge,branch=main,enable=${{ matrix.php == '8.3' }}
+            type=ref,event=pr,enable=${{ matrix.php == '8.3' }}
+
             type=semver,pattern=v{{version}},suffix=php{{ matrix.php }}
             type=semver,pattern=v{{major}}.{{minor}},suffix=php{{ matrix.php }}
             type=semver,pattern=v{{major}},suffix=php{{ matrix.php }}
