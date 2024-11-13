@@ -1,0 +1,59 @@
+{
+    {$CADDY_GLOBAL_OPTIONS}
+
+    auto_https off
+
+    admin :{$CADDY_ADMIN_PORT}
+
+    frankenphp {
+        {$CADDY_FRANKENPHP_CONFIG}
+    }
+}
+
+http://:{$PORT} {
+    route {
+        root * "{$APP_PATH}/public"
+
+        encode zstd br gzip
+
+        @static {
+            path *.css *.js
+        }
+
+        @image {
+            path *.png *.jpg *.jpeg *.gif *.webp *.svg
+        }
+
+        @font {
+            path *.woff *.woff2 *.ttf
+        }
+
+        header @static ?Cache-Control "public, max-age=604800, immutable"
+        header @image ?Cache-Control "public, max-age=604800, immutable"
+        header @font ?Cache-Control "public, max-age=604800, immutable"
+
+        header -Server
+        header -X-Generator
+        header -X-Powered-By
+
+        # TODO: Figure out CSP
+        # header ?Content-Security-Policy "default-src 'none'; base-uri 'self'; block-all-mixed-content; connect-src 'self' https:; form-action 'self'; font-src 'self' https: data:; frame-ancestors 'self'; img-src 'self' data:; manifest-src 'self'; object-src 'none'; script-src 'self' https: 'unsafe-eval' 'unsafe-inline'; script-src-attr 'none'; style-src 'self' https: 'unsafe-inline'; upgrade-insecure-requests"
+        header ?Cross-Origin-Embedder-Policy "require-corp"
+        header ?Cross-Origin-Opener-Policy "same-origin"
+        header ?Cross-Origin-Resource-Policy "same-site"
+        header ?Referrer-Policy "strict-origin-when-cross-origin"
+        header ?X-Content-Type-Options "nosniff"
+        header ?X-Frame-Options "DENY"
+        header ?X-XSS-Protection "1; mode=block"
+
+        # Mercure configuration is injected here...
+        {$CADDY_SERVER_EXTRA_DIRECTIVES}
+
+        php_server {
+            index {$CADDY_INDEX_FILE}
+
+            # Required for the public/storage/ directory...
+            resolve_root_symlink
+        }
+    }
+}

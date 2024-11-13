@@ -7,7 +7,7 @@ RUN mkdir -p /app/public/build && \
 
 
 
-FROM ghcr.io/sajtiii/docker-laravel:v11
+FROM ghcr.io/sajtiii/docker-laravel:php8.3
 
 ADD ./www /srv/http
 COPY --from=build-node /app/public/build /srv/http/public/build
@@ -17,5 +17,5 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin -
     rm -f /usr/bin/composer
 
 RUN mkdir -p /srv/http/storage/logs && \
-    chown nginx:nginx /srv/http/storage/logs -R && \
-    chown nginx:nginx /srv/http/public/build -R
+    chown www-data:www-data /srv/http/storage/logs -R && \
+    chown www-data:www-data /srv/http/public/build -R

@@ -1,0 +1,61 @@
+name: Test
+
+on:
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - php: "8.2"
+            laravel: "9"
+          - php: "8.2"
+            laravel: "10"
+          - php: "8.2"
+            laravel: "11"
+          - php: "8.3"
+            laravel: "10"
+          - php: "8.3"
+            laravel: "11"
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Extend Dockerfile with laravel and npm installation
+        run: |
+          echo "" >> Dockerfile
+          echo "RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer" >> Dockerfile
+          echo "RUN apk add --no-cache npm" >> Dockerfile
+          echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
+          echo "WORKDIR /srv/http" >> Dockerfile
+          echo "RUN npm install && npm run build" >> Dockerfile
+          echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown www-data:www-data /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown www-data:www-data /srv/http/public/build" >> Dockerfile
+
+      - name: Build Docker image
+        run: |
+          docker build --build-arg PHP_VERSION=${{ matrix.php }} --tag test .
+
+      - name: Run Docker container
+        timeout-minutes: 1
+        run: |
+          docker run --rm --detach --publish 8888:80 --name test --env WEB_HEALTHCHECK_PATH=/ test
+          while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
+      
+      - name: Check if container is available
+        run: |
+          curl --fail --silent http://localhost:8888 > /dev/null
+
+      - name: Run tests
+        run: |
+          docker exec test php artisan test
+    
+      - name: Stop Docker container
+        if: always()
+        continue-on-error: true
+        run: |
+          docker stop test
