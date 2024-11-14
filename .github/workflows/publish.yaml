@@ -40,12 +40,13 @@ jobs:
             type=edge,branch=main,enable=${{ matrix.php == '8.3' }}
             type=ref,event=pr,enable=${{ matrix.php == '8.3' }}
 
+            type=raw,value=php${{ matrix.php }},enable=${{ github.event_name == 'release' }}
+
             type=semver,pattern=v{{version}},suffix=-php${{ matrix.php }}
             type=semver,pattern=v{{major}}.{{minor}},suffix=-php${{ matrix.php }}
             type=semver,pattern=v{{major}},suffix=-php${{ matrix.php }}
             type=edge,branch=main,suffix=-php${{ matrix.php }}
             type=ref,event=pr,suffix=-php${{ matrix.php }}
-            type=raw,value=php${{ matrix.php }}
 
       - name: Log in to GHCR.io
         if: github.event_name != 'pull_request'
