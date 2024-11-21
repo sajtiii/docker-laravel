@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 export OPTIMIZE_BY_DEFAULT=false
 if [ "${APP_ENV}" = "production" ] ; then

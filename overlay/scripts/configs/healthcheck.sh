@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -e
 
 export WEB_HEALTHCHECK_ENABLED=${WEB_HEALTHCHECK_ENABLED:-true}
 export WEB_HEALTHCHECK_PATH=${WEB_HEALTHCHECK_PATH:-up}
