@@ -2,6 +2,10 @@
 
 source /scripts/functions.sh
 load_config common
+
+trigger preconfig
+
+load_config application
 load_service_configs
 load_config optimization
 
