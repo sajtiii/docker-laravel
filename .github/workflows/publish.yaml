@@ -11,9 +11,6 @@ on:
       - 'main'
   release:
     types: [released]
-  pull_request:
-    branches:
-      - 'main'
 
 env:
   REGISTRY: ghcr.io
@@ -39,7 +36,7 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=latest,enable=${{ matrix.php == '8.3' }}
+            type=raw,value=latest,enable=${{ matrix.php == '8.3'}}
             type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.3' }}
