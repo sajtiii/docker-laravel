@@ -36,13 +36,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
+          flavor: |
+            latest=false
           tags: |
             type=raw,value=latest,enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.3' }}
             type=edge,branch=main,enable=${{ matrix.php == '8.3' }}
-            type=ref,event=pr,enable=${{ matrix.php == '8.3' }}
 
             type=raw,value=php${{ matrix.php }},enable=${{ github.event_name == 'release' }}
 
