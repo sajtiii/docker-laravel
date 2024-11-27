@@ -36,7 +36,8 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=latest,enable=${{ matrix.php == '8.3'}}
+            type=raw,value=latest,enable=${{ matrix.php == '8.3' && github.event_name == 'release' }}
+
             type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.3' }}
             type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.3' }}
@@ -61,6 +62,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
