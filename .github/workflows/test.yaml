@@ -11,16 +11,75 @@ jobs:
       matrix:
         platform: [linux/386, linux/amd64, linux/arm/v7, linux/arm64]
         include:
+          # PHP 8.2 - Laravel 9
           - php: "8.2"
             laravel: "9"
+            platform: linux/386
+          - php: "8.2"
+            laravel: "9"
+            platform: linux/amd64
+          - php: "8.2"
+            laravel: "9"
+            platform: linux/arm/v7
+          - php: "8.2"
+            laravel: "9"
+            platform: linux/arm64
+
+          # PHP 8.2 - Laravel 10
           - php: "8.2"
             laravel: "10"
+            platform: linux/386
+          - php: "8.2"
+            laravel: "10"
+            platform: linux/amd64
+          - php: "8.2"
+            laravel: "10"
+            platform: linux/arm/v7
+          - php: "8.2"
+            laravel: "10"
+            platform: linux/arm64
+
+          # PHP 8.2 - Laravel 11
           - php: "8.2"
             laravel: "11"
+            platform: linux/386
+          - php: "8.2"
+            laravel: "11"
+            platform: linux/amd64
+          - php: "8.2"
+            laravel: "11"
+            platform: linux/arm/v7
+          - php: "8.2"
+            laravel: "11"
+            platform: linux/arm64
+
+          # PHP 8.3 - Laravel 10
           - php: "8.3"
             laravel: "10"
+            platform: linux/386
+          - php: "8.3"
+            laravel: "10"
+            platform: linux/amd64
+          - php: "8.3"
+            laravel: "10"
+            platform: linux/arm/v7
+          - php: "8.3"
+            laravel: "10"
+            platform: linux/arm64
+            
+          # PHP 8.3 - Laravel 11
           - php: "8.3"
             laravel: "11"
+            platform: linux/386
+          - php: "8.3"
+            laravel: "11"
+            platform: linux/amd64
+          - php: "8.3"
+            laravel: "11"
+            platform: linux/arm/v7
+          - php: "8.3"
+            laravel: "11"
+            platform: linux/arm64
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
