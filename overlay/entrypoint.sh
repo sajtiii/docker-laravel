@@ -56,6 +56,8 @@ echo ""
 echo ""
 echo ""
 
+source /scripts/configure-php.sh
+
 # Migrate DB if something changed and auto migrate is enabled
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate
