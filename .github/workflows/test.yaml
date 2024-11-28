@@ -98,7 +98,7 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker buildx --build-arg PHP_VERSION=${{ matrix.php }} --tag test --platform ${{ matrix.platform }} .
+          docker buildx build --build-arg PHP_VERSION=${{ matrix.php }} --tag test --platform ${{ matrix.platform }} .
 
       - name: Run Docker container
         timeout-minutes: 1
