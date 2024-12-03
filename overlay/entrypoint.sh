@@ -23,7 +23,7 @@ if [ ! -f "${APP_PATH}/artisan" ] ; then
     exit 1
 fi
 
-if [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
+if is_web && [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
     message "Error! App port [${PORT}] cannot be the same as caddy admin port."
     exit 1
 fi
