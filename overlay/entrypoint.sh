@@ -13,6 +13,16 @@ load_config optimization
 # Database migration flag
 export AUTO_MIGRATE=${AUTO_MIGRATE:-false}
 
+if [[ ! "${APP_PATH}" =~ ^/ ]] || [[ "${APP_PATH}" =~ /$ ]] ; then
+    message "Error! Application path [APP_PATH] must start with a \`/\` and end without it."
+    exit 1
+fi
+
+if [ ! -f "${APP_PATH}/artisan" ] ; then
+    message "Error! No Laravel application found in [${APP_PATH}]."
+    exit 1
+fi
+
 if is_web && [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
     message "Error! App port [${PORT}] cannot be the same as caddy admin port."
     exit 1
