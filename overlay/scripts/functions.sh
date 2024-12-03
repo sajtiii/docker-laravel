@@ -1,10 +1,10 @@
 #//bin/sh
 
 trigger() {
-    if [ -f "/${APP_PATH}/${1}.sh" ] ; then
-        echo "Triggering $1 script [/${APP_PATH}/${1}.sh] ..."
-        chmod +x /${APP_PATH}/${1}.sh
-        source /${APP_PATH}/${1}.sh
+    if [ -f "${APP_PATH}/${1}.sh" ] ; then
+        echo "Triggering $1 script [${APP_PATH}/${1}.sh] ..."
+        chmod +x ${APP_PATH}/${1}.sh
+        source ${APP_PATH}/${1}.sh
     fi
 }
 
