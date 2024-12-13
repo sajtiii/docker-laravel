@@ -28,6 +28,11 @@ if is_web && [ "${PORT}" = "${CADDY_ADMIN_PORT}" ] ; then
     exit 1
 fi
 
+if is_scheduler && [ "${SCHEDULER_MODE}" != "once" ] && [ "${SCHEDULER_MODE}" != "continuous" ] ; then
+    message "Error! Invalid scheduler mode [${SCHEDULER_MODE}]. Can be either \`once\` or \`continuous\`."
+    exit 1
+fi
+
 if [ ! -z "${MESSAGE_FROM_CONFIG}" ] ; then
     message "${MESSAGE_FROM_CONFIG}"
 fi
@@ -57,6 +62,9 @@ if [ is_queue ]; then
     echo "Queues:                           ${QUEUES}"
     echo "Queue tries:                      ${QUEUE_TRIES}"
     echo "Queue timeout [s]:                ${QUEUE_TIMEOUT}"
+fi
+if [ is_scheduler ]; then
+    echo "Scheduler mode:                   ${SCHEDULER_MODE}"
 fi
 echo "Optimize config enabled:          ${OPTIMIZE_CONFIG}"
 echo "Optimize events enabled:          ${OPTIMIZE_EVENTS}"
@@ -102,7 +110,16 @@ if [ "${OCTANE_ENABLED}" = true ] ; then
     WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
 QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
-SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:work --verbose --no-interaction"
+SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
+
+# Creating crond file
+if is_scheduler; then
+    date +%s > /tmp/scheduler-last-run
+    mkdir -p /etc/cron
+    echo "* * * * * ${SCHEDULER_COMMAND} > /dev/stdout 2>&1" > /etc/crontabs/root
+    echo "* * * * * date +%s > /tmp/scheduler-last-run 2>&1" >> /etc/crontabs/root 
+    echo "# empty line" >> /etc/crontabs/root
+fi
 
 # Start necessary services
 if [ "${CONTAINER_ROLE}" = "web" ]; then
@@ -115,7 +132,12 @@ elif [ "${CONTAINER_ROLE}" = "queue" ]; then
  
 elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
     echo "Starting scheduler service ..."
-    eval "${SCHEDULER_COMMAND}"
+    if [ "${SCHEDULER_MODE}" = "once" ] ; then
+        eval "${SCHEDULER_COMMAND}"
+    fi
+    if [ "${SCHEDULER_MODE}" = "continuous" ] ; then
+        exec crond -f
+    fi
  
 elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     echo "Executing custom command [$@] ..."
@@ -148,7 +170,7 @@ else
     if is_scheduler; then
         echo "Installing scheduler service ..."
         echo "[program:scheduler]" >> /etc/supervisord.conf
-        echo "command=sh -c \"$SCHEDULER_COMMAND\"" >> /etc/supervisord.conf
+        echo "command=crond -f" >> /etc/supervisord.conf
         echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
         echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
         echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf

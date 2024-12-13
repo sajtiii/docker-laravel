@@ -30,13 +30,10 @@ jobs:
         run: |
           echo "" >> Dockerfile
           echo "RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer" >> Dockerfile
-          echo "RUN apk add --no-cache npm" >> Dockerfile
           echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
-          echo "RUN npm install && npm run build" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
           echo "RUN chown www-data:www-data /srv/http/storage/logs" >> Dockerfile
-          echo "RUN chown www-data:www-data /srv/http/public/build" >> Dockerfile
 
       - name: Build Docker image
         run: |
