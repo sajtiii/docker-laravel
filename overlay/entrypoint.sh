@@ -117,7 +117,7 @@ if is_scheduler; then
     echo echo "$(date +%s)" > /tmp/scheduler-last-run
     mkdir -p /etc/cron
     echo "* * * * * ${SCHEDULER_COMMAND} 2>&1" > /etc/cron/crontab
-    echo "* * * * * echo "\$(date +%s)" > /tmp/scheduler-last-run 2>&1" >> /etc/cron/crontab 
+    echo "* * * * * echo \"\$(date +%s)\" > /tmp/scheduler-last-run 2>&1" >> /etc/cron/crontab 
     echo "# empty line" >> /etc/cron/crontab
 fi
 
