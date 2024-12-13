@@ -134,7 +134,8 @@ elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
     echo "Starting scheduler service ..."
     if [ "${SCHEDULER_MODE}" = "once" ] ; then
         eval "${SCHEDULER_COMMAND}"
-    else
+    fi
+    if [ "${SCHEDULER_MODE}" = "continuous" ] ; then
         exec crond -f
     fi
  
