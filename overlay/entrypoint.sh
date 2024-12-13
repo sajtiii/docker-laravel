@@ -110,15 +110,15 @@ if [ "${OCTANE_ENABLED}" = true ] ; then
     WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
 QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
-SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --no-interaction"
+SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
 
 # Creating crond file
 if is_scheduler; then
-    echo echo "$(date +%s)" > /tmp/scheduler-last-run
+    date +%s > /tmp/scheduler-last-run
     mkdir -p /etc/cron
-    echo "* * * * * ${SCHEDULER_COMMAND} 2>&1" > /etc/cron/crontab
-    echo "* * * * * echo \"\$(date +%s)\" > /tmp/scheduler-last-run 2>&1" >> /etc/cron/crontab 
-    echo "# empty line" >> /etc/cron/crontab
+    echo "* * * * * ${SCHEDULER_COMMAND} > /dev/stdout 2>&1" > /etc/crontabs/root
+    echo "* * * * * date +%s > /tmp/scheduler-last-run 2>&1" >> /etc/crontabs/root 
+    echo "# empty line" >> /etc/crontabs/root
 fi
 
 # Start necessary services
