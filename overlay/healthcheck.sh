@@ -35,8 +35,11 @@ if [ "${QUEUE_HEALTHCHECK_ENABLED}" = true ] && is_queue && [ $((($(date +%s) % 
     done
 fi
 
-# if [ "${SCHEDULER_HEALTHCHECK_ENABLED}" = true ] && is_scheduler; then
-#     echo "Scheduler TODO";
-# fi
+if [ "${SCHEDULER_HEALTHCHECK_ENABLED}" = true ] && is_scheduler; then
+    lastRun=$(cat /tmp/scheduler-last-run)
+    if [ $((($(date +%s) - $lastRun) % 60)) -gt 5 ]; then
+        exit 1
+    fi
+fi
 
 exit 0;
