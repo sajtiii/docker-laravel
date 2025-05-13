@@ -17,6 +17,7 @@ Multiple PHP versions are available from the container, which are compatible wit
 | Laravel 9  | &check; |         |         |
 | Laravel 10 | &check; | &check; |         |
 | Laravel 11 | &check; | &check; | &check; |
+| Laravel 12 | &check; | &check; | &check; |
 
 
 ## Development
