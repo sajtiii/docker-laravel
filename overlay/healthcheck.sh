@@ -12,9 +12,16 @@ fi
 
 if [ "${WEB_HEALTHCHECK_ENABLED}" = true ] && is_web; then
     if [ "${OCTANE_ENABLED}" = true ] ; then
-        php ${APP_PATH}/artisan octane:status > /dev/null || exit 1
+        if ! php ${APP_PATH}/artisan octane:status > /dev/null; then
+            echo "Web healthcheck failed: Octane is not running or not healthy."
+            exit 1
+        fi
     fi
-    curl --fail --silent --max-time ${WEB_HEALTHCHECK_TIMEOUT} "${WEB_HEALTHCHECK_URL}" > /dev/null || exit 1
+
+    if ! curl --fail --silent --max-time ${WEB_HEALTHCHECK_TIMEOUT} "${WEB_HEALTHCHECK_URL}" > /dev/null; then
+        echo "Web healthcheck failed: could not reach ${WEB_HEALTHCHECK_URL}."
+        exit 1
+    fi
 fi
 
 if [ "${QUEUE_HEALTHCHECK_ENABLED}" = true ] && is_queue && [ $((($(date +%s) % $QUEUE_TIMEOUT) % 120)) -le 5 ]; then
@@ -30,6 +37,7 @@ if [ "${QUEUE_HEALTHCHECK_ENABLED}" = true ] && is_queue && [ $((($(date +%s) % 
         echo $length > $file
 
         if [ $length -gt 0 ] && [ $length -eq $previousLength ]; then
+            echo "Queue healthcheck failed: queue '${queue}' has ${length} jobs and did not changed since last check."
             exit 1
         fi
     done
@@ -38,6 +46,7 @@ fi
 if [ "${SCHEDULER_HEALTHCHECK_ENABLED}" = true ] && is_scheduler; then
     lastRun=$(cat /tmp/scheduler-last-run)
     if [ $((($(date +%s) - $lastRun) % 60)) -gt 5 ]; then
+        echo "Scheduler healthcheck failed: last run was more than 5 minutes ago."
         exit 1
     fi
 fi
