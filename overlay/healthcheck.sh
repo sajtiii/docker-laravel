@@ -45,8 +45,8 @@ fi
 
 if [ "${SCHEDULER_HEALTHCHECK_ENABLED}" = true ] && is_scheduler; then
     lastRun=$(cat /tmp/scheduler-last-run)
-    if [ $((($(date +%s) - $lastRun) % 60)) -gt 5 ]; then
-        echo "Scheduler healthcheck failed: last run was more than 5 minutes ago."
+    if [ $((($(date +%s) - $lastRun) / 60)) -ge 2 ]; then
+        echo "Scheduler healthcheck failed: last run was more than 2 minutes ago at $(date -d @$lastRun)."
         exit 1
     fi
 fi
