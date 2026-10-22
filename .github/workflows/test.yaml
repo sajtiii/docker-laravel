@@ -66,7 +66,8 @@ jobs:
 
       - name: Run tests
         run: |
-          docker exec --user www-data test php artisan test
+          # The filesystem is read-only, so PHPUnit can not write its result cache
+          docker exec --user www-data test php artisan test --do-not-cache-result
     
       - name: Stop Docker container
         if: always()
