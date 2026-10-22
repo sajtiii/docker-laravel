@@ -25,8 +25,13 @@ Multiple PHP versions are available from the container, which are compatible wit
 
 |            | PHP 8.2 | PHP 8.3 | PHP 8.4 | PHP 8.5 |
 |------------|:-------:|:-------:|:-------:|:-------:|
+| Laravel 9  | &check; |         |         |         |
+| Laravel 10 | &check; | &check; |         |         |
+| Laravel 11 | &check; | &check; | &check; | &check; |
 | Laravel 12 | &check; | &check; | &check; | &check; |
 | Laravel 13 |         | &check; | &check; | &check; |
+
+Laravel 9, 10 and 11 are end of life upstream, they are still tested for legacy applications, but Laravel does not provide fixes for them anymore.
 
 ## Upgrading to v2
 
@@ -38,7 +43,6 @@ The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsen
 - **The Caddy admin API listens on `localhost` only** (`CADDY_ADMIN_PORT`, default `2019`, the Caddy default), so it is not reachable from other containers.
 - **Hardened PHP defaults**: `expose_php`, `display_errors` and `allow_url_include` are off, sessions use strict mode and `HttpOnly`, `SameSite=Lax` cookies. Override them with your own ini file in `$PHP_INI_DIR/conf.d`.
 - **Extensions**: all extensions needed by Laravel and Octane (including `pcntl`, `redis`, `gd`, `intl`, `zip`) come with the base image. Composer and `install-php-extensions` are also included, so they do not have to be installed in projects built on this image.
-- Laravel 9, 10, 11 are not tested anymore as they are end of life.
 
 ## Running hardened
 
