@@ -1,0 +1,75 @@
+name: Gate
+
+# A single check that passes only when all the other CI workflows passed for the commit.
+# Make this the only required status check in the branch protection rules.
+
+on:
+  pull_request:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Wait for the other workflows
+        uses: actions/github-script@v7
+        env:
+          # Names of the workflows that have to pass, add new workflows here
+          WORKFLOWS: Test,Publish
+        with:
+          script: |
+            const expected = process.env.WORKFLOWS.split(',');
+            const sha = context.payload.pull_request.head.sha;
+            const sleep = (s) => new Promise((resolve) => setTimeout(resolve, s * 1000));
+            const passing = ['success', 'skipped', 'neutral'];
+            const started = Date.now();
+
+            while (true) {
+              const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+                ...context.repo, head_sha: sha, event: 'pull_request', per_page: 100,
+              });
+
+              // Only the latest run of each workflow counts, so re-runs replace failed attempts
+              const latest = {};
+              for (const run of runs) {
+                if (!expected.includes(run.name)) continue;
+                if (!latest[run.name] || new Date(run.created_at) > new Date(latest[run.name].created_at)) {
+                  latest[run.name] = run;
+                }
+              }
+
+              const missing = expected.filter((name) => !latest[name]);
+              const pending = Object.values(latest).filter((run) => run.status !== 'completed');
+              const failed = Object.values(latest).filter((run) => run.status === 'completed' && !passing.includes(run.conclusion));
+
+              for (const run of failed) {
+                core.error(`${run.name} finished with: ${run.conclusion} (${run.html_url})`);
+              }
+              if (failed.length > 0) {
+                core.setFailed(`Failed workflows: ${failed.map((run) => run.name).join(', ')}`);
+                return;
+              }
+
+              if (missing.length === 0 && pending.length === 0) {
+                core.info(`All workflows passed: ${expected.join(', ')}`);
+                return;
+              }
+
+              // Workflows that never started (for example, no matching trigger) must not pass the gate silently
+              if (missing.length > 0 && Date.now() - started > 5 * 60 * 1000) {
+                core.setFailed(`Workflows did not start: ${missing.join(', ')}`);
+                return;
+              }
+
+              core.info(`Waiting for: ${[...missing, ...pending.map((run) => run.name)].join(', ')}`);
+              await sleep(20);
+            }
