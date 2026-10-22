@@ -11,9 +11,6 @@ FROM base-${PHP_VERSION}
 ENV TZ=UTC
 ENV PHP_VERSION=${PHP_VERSION}
 
-LABEL org.opencontainers.image.source=https://github.com/sajtiii/docker-laravel
-LABEL org.opencontainers.image.description="A simple Laravel container with Octane, Queue and Scheduler"
-LABEL org.opencontainers.image.licenses="MIT"
 
 # The base image already provides every PHP extension Laravel (and Octane) needs,
 # including pcntl, redis, pdo_*, zip, intl, exif and gd. Composer and
