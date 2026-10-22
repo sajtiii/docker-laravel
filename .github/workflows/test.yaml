@@ -11,6 +11,7 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         php: ["8.2", "8.3", "8.4", "8.5"]
         laravel: ["9", "10", "11", "12", "13"]
@@ -33,6 +34,10 @@ jobs:
 
       - name: Extend Dockerfile with laravel and npm installation
         run: |
+          # End of life Laravel versions only have releases with known security advisories, which composer blocks
+          if [ "${{ matrix.laravel }}" -le 11 ]; then
+            echo "ENV COMPOSER_NO_SECURITY_BLOCKING=1" >> Dockerfile
+          fi
           echo "" >> Dockerfile
           echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
