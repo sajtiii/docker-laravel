@@ -1,8 +1,6 @@
 ARG PHP_VERSION="8.4"
 
-FROM dunglas/frankenphp:1-php${PHP_VERSION}-alpine
-
-RUN cp $PHP_INI_DIR/php.ini-production $PHP_INI_DIR/php.ini
+FROM shinsenter/frankenphp:php${PHP_VERSION}-alpine
 
 ENV TZ=UTC
 ENV PHP_VERSION=${PHP_VERSION}
@@ -46,6 +44,7 @@ RUN install-php-extensions \
     gd
 
     
+ENV APP_PATH=/srv/http
 WORKDIR /srv/http
 
 ADD overlay/ /

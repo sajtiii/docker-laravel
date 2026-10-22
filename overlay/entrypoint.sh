@@ -105,7 +105,7 @@ if [ "${OPTIMIZE_VIEWS}" = true ] ; then
 fi
 
 # Define commands
-WEB_COMMAND="docker-php-entrypoint --config /etc/caddy/Caddyfile --adapter caddyfile"
+WEB_COMMAND="/usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
 if [ "${OCTANE_ENABLED}" = true ] ; then
     WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
