@@ -12,13 +12,13 @@ The project initially followed the Laravel versioning scheme (eg.: `:v11` contai
 
 Multiple PHP versions are available from the container, which are compatible with the following Laraver versions:
 
-|            | PHP 8.2 | PHP 8.3 | PHP 8.4 |
-|------------|:-------:|:-------:|:-------:|
-| Laravel 9  | &check; |         |         |
-| Laravel 10 | &check; | &check; |         |
-| Laravel 11 | &check; | &check; | &check; |
-| Laravel 12 | &check; | &check; | &check; |
-
+|            | PHP 8.2 | PHP 8.3 | PHP 8.4 | PHP 8.5 |
+|------------|:-------:|:-------:|:-------:|:-------:|
+| Laravel 9  | &check; |         |         |         |
+| Laravel 10 | &check; | &check; |         |         |
+| Laravel 11 | &check; | &check; | &check; | &check; |
+| Laravel 12 | &check; | &check; | &check; | &check; |
+| Laravel 13 |         | &check; | &check; | &check; |
 
 ## Development
 A new laravel app (with octane optionally) installed inside the `www` folder is required. \
