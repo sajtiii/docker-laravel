@@ -21,6 +21,11 @@ RUN apk add --no-cache --virtual .setcap libcap-setcap && \
     setcap -r /usr/local/bin/frankenphp && \
     apk del .setcap
 
+# Octane starts `frankenphp` from the PATH. The base image wrapper tries to switch user again,
+# which fails when already running as the application user, so use the binary directly.
+RUN printf '#!/bin/sh\nexec /usr/local/bin/frankenphp "$@"\n' > /usr/local/utils/frankenphp && \
+    chmod +x /usr/local/utils/frankenphp
+
 # Caddy keeps its state here, and it has to be writable for any PUID/PGID
 RUN find /config /data -type d -exec chmod 1777 {} +
 

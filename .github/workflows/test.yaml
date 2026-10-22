@@ -58,3 +58,62 @@ jobs:
         continue-on-error: true
         run: |
           docker stop test
+
+  test-octane:
+    name: Test with Octane
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ["8.3", "8.5"]
+        laravel: ["12", "13"]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Extend Dockerfile with laravel and octane installation
+        run: |
+          echo "" >> Dockerfile
+          echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
+          echo "WORKDIR /srv/http" >> Dockerfile
+          echo "RUN composer require laravel/octane --no-interaction" >> Dockerfile
+          echo "RUN php artisan octane:install --server=frankenphp --no-interaction" >> Dockerfile
+          echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown -R www-data:www-data /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
+
+      - name: Build Docker image
+        run: |
+          docker build --build-arg PHP_VERSION=${{ matrix.php }} --tag test .
+
+      - name: Run Docker container
+        timeout-minutes: 2
+        run: |
+          docker run --rm --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
+            --env SESSION_DRIVER=file --env CACHE_STORE=file \
+            --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
+            --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
+            --volume storage:/srv/http/storage --volume bootstrap-cache:/srv/http/bootstrap/cache \
+            test
+          while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
+
+      - name: Check that Octane is running and serving requests
+        run: |
+          curl --fail --silent http://localhost:8888 > /dev/null
+          docker exec --user www-data test php artisan octane:status | grep -q "Octane server is running"
+
+      - name: Reload Octane workers
+        run: |
+          docker exec --user www-data test php artisan octane:reload
+          sleep 3
+          curl --fail --silent http://localhost:8888 > /dev/null
+          docker exec --user www-data test php artisan octane:status | grep -q "Octane server is running"
+
+      - name: Show container logs
+        if: failure()
+        run: |
+          docker logs test
+
+      - name: Stop Docker container
+        if: always()
+        continue-on-error: true
+        run: |
+          docker stop test
