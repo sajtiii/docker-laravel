@@ -30,7 +30,7 @@ Multiple PHP versions are available from the container, which are compatible wit
 
 ## Upgrading to v2
 
-The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) (pinned by digest) and runs with less privileges. Things to be aware of when coming from v1:
+The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) and runs with less privileges. Things to be aware of when coming from v1:
 
 - **Default port is `8080`** instead of `80`, so no extra capability is needed. Set `PORT` to change it, and publish it accordingly (`-p 80:8080`). `EXPOSE`, the healthcheck and the Caddy config follow `PORT`.
 - **Everything runs as `www-data`**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint and `supervisord` (used when multiple roles are combined) stay root, to start the processes. `storage` and `bootstrap/cache` must be writable by `www-data` (see `Dockerfile.example`).
@@ -69,7 +69,7 @@ Everything else the application writes (for example a SQLite database) has to li
 
 ## Supply chain
 
-- The base images are pinned by digest, and Dependabot keeps the tags and digests up to date.
+- The base image is rebuilt upstream whenever PHP or Alpine publish updates, and this image is rebuilt every night to pick them up.
 - Every image is built with SBOM and max provenance attestations, and non-PR images are signed with [cosign](https://docs.sigstore.dev/cosign/overview/) (keyless). Verify with:
 
   ```sh
