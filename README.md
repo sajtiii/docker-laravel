@@ -78,7 +78,7 @@ Everything else the application writes (for example a SQLite database) has to li
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   ```
 - Pull requests get a [Trivy](https://trivy.dev) report per PHP version as a comment, and a release is not published if it contains a fixable `CRITICAL` vulnerability.
-- All GitHub Actions are pinned by commit SHA, and the workflows run with minimal permissions.
+- The workflows run with minimal permissions.
 
 ## Development
 A new laravel app (with octane optionally) installed inside the `www` folder is required. \
