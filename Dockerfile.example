@@ -17,5 +17,6 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin -
     rm -f /usr/bin/composer
 
 RUN mkdir -p /srv/http/storage/logs && \
-    chown www-data:www-data /srv/http/storage/logs -R && \
+    chown www-data:www-data /srv/http/storage -R && \
+    chown www-data:www-data /srv/http/bootstrap/cache -R && \
     chown www-data:www-data /srv/http/public/build -R
