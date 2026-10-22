@@ -8,6 +8,17 @@ The services can be selected using the `CONTAINER_ROLE` environment variable.
 ## Change in versioning schema
 The project initially followed the Laravel versioning scheme (eg.: `:v11` container for Laravel 11), but it is not changed, and the project follows semantic versioning from `v1`.
 
+## Image tags
+
+| Tag                                | Description                                                                 |
+|------------------------------------|-----------------------------------------------------------------------------|
+| `latest`, `vX.Y.Z`, `vX.Y`, `vX`   | Release builds, on the newest supported PHP version (8.5)                   |
+| `phpX.Y`, `vX.Y.Z-phpX.Y`          | Release builds for a specific PHP version                                   |
+| `edge`, `edge-phpX.Y`              | Latest `main` branch builds                                                 |
+| `nightly`, `nightly-phpX.Y`        | Rebuilt every night from `main` without cache, to pick up base image and package updates |
+
+The nightly images are scanned with [Trivy](https://trivy.dev). Fixable `HIGH` and `CRITICAL` vulnerabilities are tracked in one issue per PHP version (label `nightly-scan`), which is closed automatically when the findings are gone.
+
 ## Compatibility matrix
 
 Multiple PHP versions are available from the container, which are compatible with the following Laraver versions:
