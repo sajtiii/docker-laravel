@@ -1,0 +1,6 @@
+# The base image (shinsenter/frankenphp) ships a shared, publicly known TLS key for local HTTPS testing.
+# This image does not use it (automatic HTTPS is off), so it is not a real secret.
+secrets:
+  - id: private-key
+    paths:
+      - "/etc/ssl/site/server.key"
