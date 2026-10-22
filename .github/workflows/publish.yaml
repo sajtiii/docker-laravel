@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       packages: write
+      pull-requests: write
     strategy:
       matrix:
         php: ["8.2", "8.3", "8.4", "8.5"]
@@ -76,3 +77,37 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php }}
           platforms: linux/386,linux/amd64,linux/arm/v7,linux/arm64
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@0.33.1
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: table
+          output: trivy-report.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+
+      - name: Prepare Trivy comment
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          {
+            echo "<details>"
+            echo "<summary>Trivy scan: PHP ${{ matrix.php }}</summary>"
+            echo ""
+            echo '```'
+            head -c 60000 trivy-report.txt
+            echo ""
+            echo '```'
+            echo "</details>"
+          } > trivy-comment.md
+
+      - name: Comment Trivy report on the PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: trivy-php${{ matrix.php }}
+          path: trivy-comment.md
