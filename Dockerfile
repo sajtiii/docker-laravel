@@ -21,8 +21,8 @@ RUN apk add --no-cache --virtual .setcap libcap-setcap && \
     setcap -r /usr/local/bin/frankenphp && \
     apk del .setcap
 
-# Caddy keeps its state here, and it runs as the application user
-RUN chown -R ${APP_USER:-www-data}:${APP_GROUP:-www-data} /config /data
+# Caddy keeps its state here, and it has to be writable for any PUID/PGID
+RUN find /config /data -type d -exec chmod 1777 {} +
 
 ENV APP_PATH=/srv/http
 WORKDIR /srv/http
