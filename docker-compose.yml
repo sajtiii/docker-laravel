@@ -1,23 +1,45 @@
+# Hardened runtime settings shared by all services
+x-hardening: &hardening
+  read_only: true
+  cap_drop:
+    - ALL
+  cap_add:
+    # Needed by the entrypoint to start the processes as www-data
+    - SETUID
+    - SETGID
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:mode=1777
+    - /config:mode=1777
+    - /data:mode=1777
+  volumes:
+    - storage:/srv/http/storage
+    - bootstrap-cache:/srv/http/bootstrap/cache
+
 services:
   all:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "80:80"
+      - "80:8000"
     environment:
       - CONTAINER_ROLE=web,queue,scheduler
 
   web:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "81:80"
+      - "81:8000"
     environment:
       - CONTAINER_ROLE=web
 
   queue:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
@@ -25,8 +47,13 @@ services:
       - CONTAINER_ROLE=queue
 
   scheduler:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     environment:
       - CONTAINER_ROLE=scheduler
+
+volumes:
+  storage:
+  bootstrap-cache:

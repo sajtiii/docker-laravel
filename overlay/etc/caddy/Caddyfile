@@ -3,7 +3,7 @@
 
     auto_https off
 
-    admin :{$CADDY_ADMIN_PORT}
+    admin localhost:{$CADDY_ADMIN_PORT}
 
     frankenphp {
         {$CADDY_FRANKENPHP_CONFIG}

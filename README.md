@@ -28,6 +28,58 @@ Multiple PHP versions are available from the container, which are compatible wit
 | Laravel 12 | &check; | &check; | &check; | &check; |
 | Laravel 13 |         | &check; | &check; | &check; |
 
+## Upgrading to v2
+
+The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) (pinned by digest) and runs with less privileges. Things to be aware of when coming from v1:
+
+- **Default port is `8000`** instead of `80`, so no extra capability is needed. Set `PORT` to change it, and publish it accordingly (`-p 80:8000`). `EXPOSE`, the healthcheck and the Caddy config follow `PORT`.
+- **Everything runs as `www-data`**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint and `supervisord` (used when multiple roles are combined) stay root, to start the processes. `storage` and `bootstrap/cache` must be writable by `www-data` (see `Dockerfile.example`).
+- **The scheduler no longer uses cron.** It runs `artisan schedule:run` at the start of every minute from a small loop, without root and without waiting for overlapping runs.
+- **The Caddy admin API listens on `localhost` only** (`CADDY_ADMIN_PORT`, default `8080`), so it is not reachable from other containers.
+- **Hardened PHP defaults**: `expose_php`, `display_errors` and `allow_url_include` are off, sessions use strict mode and `HttpOnly`, `SameSite=Lax` cookies. Override them with your own ini file in `$PHP_INI_DIR/conf.d`.
+- **Extensions**: all extensions needed by Laravel and Octane (including `pcntl`, `redis`, `gd`, `intl`, `zip`) come with the base image. Composer and `install-php-extensions` are also included, so they do not have to be installed in projects built on this image.
+- Laravel 9, 10, 11 are not tested anymore as they are end of life.
+
+## Running hardened
+
+The image can run with a read-only filesystem and without any extra privileges. The runtime only needs to be able to switch to `www-data`, and write to the `tmpfs` mounts and volumes below:
+
+```yaml
+services:
+  app:
+    image: ghcr.io/sajtiii/docker-laravel:latest
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:mode=1777
+      - /config:mode=1777
+      - /data:mode=1777
+    volumes:
+      - storage:/srv/http/storage
+      - bootstrap-cache:/srv/http/bootstrap/cache
+```
+
+Everything else the application writes (for example a SQLite database) has to live on a volume as well. See `docker-compose.yml` for a complete example.
+
+## Supply chain
+
+- The base images are pinned by digest, and Dependabot keeps the tags and digests up to date.
+- Every image is built with SBOM and max provenance attestations, and non-PR images are signed with [cosign](https://docs.sigstore.dev/cosign/overview/) (keyless). Verify with:
+
+  ```sh
+  cosign verify ghcr.io/sajtiii/docker-laravel:latest \
+    --certificate-identity-regexp 'https://github.com/sajtiii/docker-laravel/.*' \
+    --certificate-oidc-issuer https://token.actions.githubusercontent.com
+  ```
+- Pull requests get a [Trivy](https://trivy.dev) report per PHP version as a comment, and a release is not published if it contains a fixable `CRITICAL` vulnerability.
+- All GitHub Actions are pinned by commit SHA, and the workflows run with minimal permissions.
+
 ## Development
 A new laravel app (with octane optionally) installed inside the `www` folder is required. \
 To install a fresh laravel in that folder run the following commands:

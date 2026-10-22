@@ -8,6 +8,8 @@ on:
 env:
   REGISTRY: ghcr.io
 
+permissions: {}
+
 jobs:
   nightly:
     name: Nightly build and scan
@@ -16,17 +18,18 @@ jobs:
       contents: read
       packages: write
       issues: write
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
         php: ["8.2", "8.3", "8.4", "8.5"]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
           flavor: |
@@ -36,10 +39,10 @@ jobs:
             type=raw,value=nightly-php${{ matrix.php }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Log in to GHCR.io
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -48,7 +51,7 @@ jobs:
       # No cache, so upstream base image and package updates are always picked up
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: .
           push: true
@@ -59,11 +62,19 @@ jobs:
           build-args: |
             PHP_VERSION=${{ matrix.php }}
           platforms: linux/386,linux/amd64,linux/arm/v7,linux/arm64
+          provenance: mode=max
+          sbom: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      - name: Sign the image
+        run: cosign sign --yes "${REGISTRY}/${{ github.repository }}@${{ steps.build.outputs.digest }}"
 
       - name: Scan image with Trivy
         id: trivy
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
@@ -76,7 +87,7 @@ jobs:
           exit-code: '1'
 
       - name: Update tracking issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         env:
           PHP_VERSION: ${{ matrix.php }}
           HAS_FINDINGS: ${{ steps.trivy.outcome == 'failure' }}

@@ -3,6 +3,9 @@ name: Test
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
@@ -16,7 +19,7 @@ jobs:
             laravel: "13"
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Extend Dockerfile with laravel and npm installation
         run: |
@@ -33,7 +36,13 @@ jobs:
       - name: Run Docker container
         timeout-minutes: 1
         run: |
-          docker run --rm --detach --publish 8888:80 --name test --env WEB_HEALTHCHECK_PATH=/ test
+          # Run with the hardened settings recommended in the README
+          docker run --rm --detach --publish 8888:8000 --name test --env WEB_HEALTHCHECK_PATH=/ \
+            --env SESSION_DRIVER=file --env CACHE_STORE=file \
+            --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
+            --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
+            --volume storage:/srv/http/storage --volume bootstrap-cache:/srv/http/bootstrap/cache \
+            test
           while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
       
       - name: Check if container is available
@@ -42,7 +51,7 @@ jobs:
 
       - name: Run tests
         run: |
-          docker exec test php artisan test
+          docker exec --user www-data test php artisan test
     
       - name: Stop Docker container
         if: always()

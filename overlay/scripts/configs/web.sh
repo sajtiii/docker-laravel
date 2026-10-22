@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-export PORT=${PORT:-80}
+export PORT=${PORT:-8000}
 export CADDY_ADMIN_PORT=${CADDY_ADMIN_PORT:-8080}
 
 # Check if octane is installed & enabled

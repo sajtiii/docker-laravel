@@ -80,7 +80,7 @@ source /scripts/configure-php.sh
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate
     echo "Running migrations ..."
-    php ${APP_PATH}/artisan migrate --force
+    ${RUN_AS} php ${APP_PATH}/artisan migrate --force
     trigger postmigrate
 fi
 
@@ -89,96 +89,83 @@ trigger prestart
 # Optimize app if enabled
 if [ "${OPTIMIZE_CONFIG}" = true ] ; then
     echo "Optimizing configuration ..."
-    php ${APP_PATH}/artisan config:cache
+    ${RUN_AS} php ${APP_PATH}/artisan config:cache
 fi
 if [ "${OPTIMIZE_EVENTS}" = true ] ; then
     echo "Optimizing events ..."
-    php ${APP_PATH}/artisan event:cache
+    ${RUN_AS} php ${APP_PATH}/artisan event:cache
 fi
 if [ "${OPTIMIZE_ROUTES}" = true ] ; then
     echo "Optimizing routes ..."
-    php ${APP_PATH}/artisan route:cache
+    ${RUN_AS} php ${APP_PATH}/artisan route:cache
 fi
 if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     echo "Optimizing views ..."
-    php ${APP_PATH}/artisan view:cache
+    ${RUN_AS} php ${APP_PATH}/artisan view:cache
 fi
 
-# Define commands
-WEB_COMMAND="/usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
+# Define commands (every long running process runs as the application user)
+WEB_COMMAND="${RUN_AS} /usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
 if [ "${OCTANE_ENABLED}" = true ] ; then
-    WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
+    WEB_COMMAND="${RUN_AS} php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
-QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
-SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
-
-# Creating crond file
-if is_scheduler; then
-    date +%s > /tmp/scheduler-last-run
-    mkdir -p /etc/cron
-    echo "* * * * * ${SCHEDULER_COMMAND} > /dev/stdout 2>&1" > /etc/crontabs/root
-    echo "* * * * * date +%s > /tmp/scheduler-last-run 2>&1" >> /etc/crontabs/root 
-    echo "# empty line" >> /etc/crontabs/root
-fi
+QUEUE_COMMAND="${RUN_AS} php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
+SCHEDULER_COMMAND="${RUN_AS} php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
+SCHEDULER_LOOP_COMMAND="${RUN_AS} /scripts/scheduler-loop.sh"
 
 # Start necessary services
 if [ "${CONTAINER_ROLE}" = "web" ]; then
     echo "Starting web service ..."
-    eval "${WEB_COMMAND}"
+    eval "exec ${WEB_COMMAND}"
 
 elif [ "${CONTAINER_ROLE}" = "queue" ]; then
     echo "Starting queue service ..."
-    eval "${QUEUE_COMMAND}"
+    eval "exec ${QUEUE_COMMAND}"
  
 elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
     echo "Starting scheduler service ..."
     if [ "${SCHEDULER_MODE}" = "once" ] ; then
-        eval "${SCHEDULER_COMMAND}"
+        eval "exec ${SCHEDULER_COMMAND}"
     fi
     if [ "${SCHEDULER_MODE}" = "continuous" ] ; then
-        exec crond -f
+        eval "exec ${SCHEDULER_LOOP_COMMAND}"
     fi
- 
+
 elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     echo "Executing custom command [$@] ..."
-    exec "$@"
-    exit 0
+    exec ${RUN_AS} "$@"
 
 else
+    # The image filesystem can be read-only, so the generated config lives in /tmp
+    SUPERVISORD_CONFIG=/tmp/supervisord.conf
+    cp /etc/supervisord.conf ${SUPERVISORD_CONFIG}
+
+    install_service() {
+        echo "Installing $1 service ..."
+        {
+            echo "[program:$1]"
+            echo "command=$2"
+            echo "stdout_logfile=/dev/fd/1"
+            echo "stdout_logfile_maxbytes=0"
+            echo "stderr_logfile=/dev/fd/1"
+            echo "stderr_logfile_maxbytes=0"
+            echo ""
+        } >> ${SUPERVISORD_CONFIG}
+    }
+
     if is_web; then
-        echo "Installing web service ..."
-        echo "[program:web]" >> /etc/supervisord.conf
-        echo "command=$WEB_COMMAND" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service web "${WEB_COMMAND}"
     fi
 
     if is_queue; then
-        echo "Installing queue service ..."
-        echo "[program:queue]" >> /etc/supervisord.conf
-        echo "command=$QUEUE_COMMAND" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service queue "${QUEUE_COMMAND}"
     fi
 
     if is_scheduler; then
-        echo "Installing scheduler service ..."
-        echo "[program:scheduler]" >> /etc/supervisord.conf
-        echo "command=crond -f" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service scheduler "${SCHEDULER_LOOP_COMMAND}"
     fi
 
     echo "Starting installed services ..."
     echo ""
-    exec supervisord -n -c /etc/supervisord.conf
+    exec supervisord -n -c ${SUPERVISORD_CONFIG}
 fi

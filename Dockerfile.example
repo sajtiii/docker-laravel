@@ -1,3 +1,5 @@
+ARG PHP_VERSION="8.5"
+
 FROM node AS build-node
 WORKDIR /app
 ADD ./www /app
@@ -7,15 +9,15 @@ RUN mkdir -p /app/public/build && \
 
 
 
-FROM ghcr.io/sajtiii/docker-laravel:php8.3
+FROM ghcr.io/sajtiii/docker-laravel:php${PHP_VERSION}
 
 ADD ./www /srv/http
 COPY --from=build-node /app/public/build /srv/http/public/build
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer && \
-    composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader && \
-    rm -f /usr/bin/composer
+# Composer is bundled with the image
+RUN composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader
 
+# The application runs as www-data, so these have to be writable by it
 RUN mkdir -p /srv/http/storage/logs && \
     chown www-data:www-data /srv/http/storage -R && \
     chown www-data:www-data /srv/http/bootstrap/cache -R && \

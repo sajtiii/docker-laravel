@@ -12,7 +12,7 @@ fi
 
 if [ "${WEB_HEALTHCHECK_ENABLED}" = true ] && is_web; then
     if [ "${OCTANE_ENABLED}" = true ] ; then
-        if ! php ${APP_PATH}/artisan octane:status > /dev/null; then
+        if ! ${RUN_AS} php ${APP_PATH}/artisan octane:status > /dev/null; then
             echo "Web healthcheck failed: Octane is not running or not healthy."
             exit 1
         fi
@@ -27,7 +27,7 @@ fi
 if [ "${QUEUE_HEALTHCHECK_ENABLED}" = true ] && is_queue && [ $((($(date +%s) % $QUEUE_TIMEOUT) % 120)) -le 5 ]; then
     IFS=','
     for queue in $QUEUES; do
-        length=$(php ${APP_PATH}/artisan tinker --execute="echo Queue::size('${queue}')")
+        length=$(${RUN_AS} php ${APP_PATH}/artisan tinker --execute="echo Queue::size('${queue}')")
         file="/tmp/queue-length-${queue}"
         previousLength=0
         if [ -f $file ]; then
