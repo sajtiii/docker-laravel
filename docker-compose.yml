@@ -4,7 +4,7 @@ x-hardening: &hardening
   cap_drop:
     - ALL
   cap_add:
-    # Needed by the entrypoint to start the processes as PUID/PGID (www-data by default)
+    # Needed by the entrypoint to start the processes as PUID/PGID (the app user by default)
     - SETUID
     - SETGID
   security_opt:

@@ -42,7 +42,7 @@ jobs:
           echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
-          echo "RUN chown -R www-data:www-data /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
 
       - name: Build Docker image
         run: |
@@ -67,7 +67,7 @@ jobs:
       - name: Run tests
         run: |
           # The filesystem is read-only, so PHPUnit can not write its result cache
-          docker exec --user www-data test php artisan test --do-not-cache-result
+          docker exec --user app test php artisan test --do-not-cache-result
     
       - name: Stop Docker container
         if: always()
@@ -94,7 +94,7 @@ jobs:
           echo "RUN composer require laravel/octane --no-interaction" >> Dockerfile
           echo "RUN php artisan octane:install --server=frankenphp --no-interaction" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
-          echo "RUN chown -R www-data:www-data /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
 
       - name: Build Docker image
         run: |
@@ -114,14 +114,14 @@ jobs:
       - name: Check that Octane is running and serving requests
         run: |
           curl --fail --silent http://localhost:8888 > /dev/null
-          docker exec --user www-data test php artisan octane:status | grep -q "Octane server is running"
+          docker exec --user app test php artisan octane:status | grep -q "Octane server is running"
 
       - name: Reload Octane workers
         run: |
-          docker exec --user www-data test php artisan octane:reload
+          docker exec --user app test php artisan octane:reload
           sleep 3
           curl --fail --silent http://localhost:8888 > /dev/null
-          docker exec --user www-data test php artisan octane:status | grep -q "Octane server is running"
+          docker exec --user app test php artisan octane:status | grep -q "Octane server is running"
 
       - name: Show container logs
         if: failure()

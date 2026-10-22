@@ -8,9 +8,9 @@ export APP_PATH=${APP_PATH:-/srv/http}
 export UPLOAD_LIMIT=${UPLOAD_LIMIT:-20M}
 
 # Long running processes and artisan commands run as the application user
-# The numeric IDs of the user and group to run as, www-data by default
-export PUID=${PUID:-$(id -u www-data)}
-export PGID=${PGID:-$(id -g www-data)}
+# The numeric IDs of the user and group to run as, the app user (1000:1000) by default
+export PUID=${PUID:-1000}
+export PGID=${PGID:-1000}
 if [ "$(id -u)" = "0" ]; then
     export RUN_AS="su-exec ${PUID}:${PGID}"
 else

@@ -21,6 +21,10 @@ RUN apk add --no-cache --virtual .setcap libcap-setcap && \
     setcap -r /usr/local/bin/frankenphp && \
     apk del .setcap
 
+# The application runs as this user by default, see the PUID and PGID options
+RUN addgroup -g 1000 app && \
+    adduser -D -u 1000 -G app -h /home/app -s /sbin/nologin app
+
 # Octane starts `frankenphp` from the PATH. The base image wrapper tries to switch user again,
 # which fails when already running as the application user, so use the binary directly.
 RUN printf '#!/bin/sh\nexec /usr/local/bin/frankenphp "$@"\n' > /usr/local/utils/frankenphp && \

@@ -38,7 +38,7 @@ Laravel 9, 10 and 11 are end of life upstream, they are still tested for legacy 
 The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) and runs with less privileges. Things to be aware of when coming from v1:
 
 - **Default port is `8080`** instead of `80`, so no extra capability is needed. Set `PORT` to change it, and publish it accordingly (`-p 80:8080`). `EXPOSE`, the healthcheck and the Caddy config follow `PORT`.
-- **Everything runs as `www-data` by default**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint and `supervisord` (used when multiple roles are combined) stay root, to start the processes. Set `PUID` and `PGID` to run as another numeric user and group (no passwd entry is needed). `storage` and `bootstrap/cache` must be writable by that user (see `Dockerfile.example`).
+- **Everything runs as the `app` user (`1000:1000`) by default**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint and `supervisord` (used when multiple roles are combined) stay root, to start the processes. Set `PUID` and `PGID` to run as another numeric user and group (no passwd entry is needed). Volumes with files owned by the v1 `www-data` user (uid 82) have to be `chown`ed. `storage` and `bootstrap/cache` must be writable by that user (see `Dockerfile.example`).
 - **The scheduler no longer uses cron.** It runs `artisan schedule:run` at the start of every minute from a small loop, without root and without waiting for overlapping runs.
 - **The Caddy admin API listens on `localhost` only** (`CADDY_ADMIN_PORT`, default `2019`, the Caddy default), so it is not reachable from other containers.
 - **Hardened PHP defaults**: `expose_php`, `display_errors` and `allow_url_include` are off, sessions use strict mode and `HttpOnly`, `SameSite=Lax` cookies. Override them with your own ini file in `$PHP_INI_DIR/conf.d`.
@@ -46,7 +46,7 @@ The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsen
 
 ## Running hardened
 
-The image can run with a read-only filesystem and without any extra privileges. The runtime only needs to be able to switch to the `PUID`/`PGID` user (`www-data` by default), and write to the `tmpfs` mounts and volumes below:
+The image can run with a read-only filesystem and without any extra privileges. The runtime only needs to be able to switch to the `PUID`/`PGID` user (`app`, `1000:1000` by default), and write to the `tmpfs` mounts and volumes below:
 
 ```yaml
 services:
@@ -88,8 +88,8 @@ Everything else the application writes (for example a SQLite database) has to li
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PUID` | UID of `www-data` | Numeric user ID the application processes run as. |
-| `PGID` | GID of `www-data` | Numeric group ID the application processes run as. |
+| `PUID` | `1000` (the `app` user) | Numeric user ID the application processes run as. |
+| `PGID` | `1000` (the `app` group) | Numeric group ID the application processes run as. |
 
 ## Development
 A new laravel app (with octane optionally) installed inside the `www` folder is required. \
