@@ -37,7 +37,7 @@ jobs:
         timeout-minutes: 1
         run: |
           # Run with the hardened settings recommended in the README
-          docker run --rm --detach --publish 8888:8000 --name test --env WEB_HEALTHCHECK_PATH=/ \
+          docker run --rm --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
             --env SESSION_DRIVER=file --env CACHE_STORE=file \
             --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
             --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \

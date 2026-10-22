@@ -46,6 +46,6 @@ RUN chmod +x /entrypoint.sh && \
 ENTRYPOINT [ "/entrypoint.sh" ]
 CMD [ "" ]
 
-EXPOSE 8000
+EXPOSE 8080
 
 HEALTHCHECK --start-period=30s --start-interval=5s --interval=10s --timeout=2s --retries=5 CMD /healthcheck.sh

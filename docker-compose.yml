@@ -24,7 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "80:8000"
+      - "80:8080"
     environment:
       - CONTAINER_ROLE=web,queue,scheduler
 
@@ -34,7 +34,7 @@ services:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "81:8000"
+      - "81:8080"
     environment:
       - CONTAINER_ROLE=web
 
