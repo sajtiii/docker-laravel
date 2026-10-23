@@ -137,28 +137,30 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
 
 else
     # Every service is supervised by s6. The image filesystem can be read-only, so the
-    # service definitions live in /tmp, in a directory only root can access.
+    # service directories live in /tmp, in a directory only root can access. /tmp is often
+    # mounted noexec, so the run scripts are links to scripts in the image, which read their
+    # command from the environment.
     SERVICES_DIR=/tmp/services
     rm -rf ${SERVICES_DIR}
     mkdir -m 700 ${SERVICES_DIR}
+    export WEB_COMMAND QUEUE_COMMAND SCHEDULER_LOOP_COMMAND
 
     install_service() {
         echo "Installing $1 service ..."
         mkdir ${SERVICES_DIR}/$1
-        printf '#!/bin/sh\nexec 2>&1\nexec %s\n' "$2" > ${SERVICES_DIR}/$1/run
-        chmod 700 ${SERVICES_DIR}/$1/run
+        ln -s /scripts/services/$1 ${SERVICES_DIR}/$1/run
     }
 
     if is_web; then
-        install_service web "${WEB_COMMAND}"
+        install_service web
     fi
 
     if is_queue; then
-        install_service queue "${QUEUE_COMMAND}"
+        install_service queue
     fi
 
     if is_scheduler; then
-        install_service scheduler "${SCHEDULER_LOOP_COMMAND}"
+        install_service scheduler
     fi
 
     echo "Starting installed services ..."

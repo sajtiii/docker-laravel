@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# s6 run script, the command is set by the entrypoint
+exec 2>&1
+eval "exec ${WEB_COMMAND}"
