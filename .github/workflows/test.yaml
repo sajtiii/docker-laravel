@@ -78,14 +78,20 @@ jobs:
     
       - name: Check that the container stops gracefully
         run: |
-          # s6 has to pass SIGTERM on to the services. If it does not, docker waits for the
-          # whole timeout and kills the container (exit code 137).
-          start=$(date +%s)
-          docker stop --time 30 test
-          took=$(( $(date +%s) - start ))
+          # s6 has to pass SIGTERM on to the services, and every service has to exit on it.
+          # Otherwise docker waits for the whole timeout and kills the container (exit code 137).
+          docker kill --signal TERM test
+          for i in $(seq 1 20); do
+            [ "$(docker inspect --format '{{.State.Running}}' test)" = "false" ] && break
+            sleep 1
+          done
+          if [ "$(docker inspect --format '{{.State.Running}}' test)" = "true" ]; then
+            echo "The container is still running 20 seconds after SIGTERM:"
+            docker exec test sh -c 'ps -o pid,ppid,user,stat,args; for s in /tmp/services/*; do echo "$s: $(s6-svstat $s)"; done'
+            exit 1
+          fi
           code=$(docker inspect --format '{{.State.ExitCode}}' test)
-          echo "Stopped in ${took}s with exit code ${code}"
-          test "${took}" -lt 20
+          echo "Stopped with exit code ${code}"
           test "${code}" != "137"
 
       - name: Remove Docker container
