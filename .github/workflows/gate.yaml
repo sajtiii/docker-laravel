@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Wait for the other workflows
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           # Names of the workflows that have to pass, add new workflows here
           WORKFLOWS: Test,Publish
