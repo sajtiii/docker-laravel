@@ -59,7 +59,7 @@ http://:{$PORT} {
         header ?Referrer-Policy "strict-origin-when-cross-origin"
         header ?X-Content-Type-Options "nosniff"
         header ?X-Frame-Options "DENY"
-        header ?X-XSS-Protection "1; mode=block"
+        header ?Permissions-Policy "camera=(), microphone=(), geolocation=()"
 
         # Mercure configuration is injected here...
         {$CADDY_SERVER_EXTRA_DIRECTIVES}
