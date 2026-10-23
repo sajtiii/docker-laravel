@@ -112,31 +112,32 @@ if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     ${RUN_AS} php ${APP_PATH}/artisan view:cache
 fi
 
-# Define commands (every long running process runs as the application user)
-WEB_COMMAND="${RUN_AS} /usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
+# Define commands. They run as the application user: the entrypoint switches to it with
+# ${RUN_AS} right before starting them.
+WEB_COMMAND="/usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
 if [ "${OCTANE_ENABLED}" = true ] ; then
-    WEB_COMMAND="${RUN_AS} php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
+    WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
-QUEUE_COMMAND="${RUN_AS} php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
-SCHEDULER_COMMAND="${RUN_AS} php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
-SCHEDULER_LOOP_COMMAND="${RUN_AS} /scripts/scheduler-loop.sh"
+QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
+SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
+SCHEDULER_LOOP_COMMAND="/scripts/scheduler-loop.sh"
 
 # Start necessary services
 if [ "${CONTAINER_ROLE}" = "web" ]; then
     echo "Starting web service ..."
-    eval "exec ${WEB_COMMAND}"
+    eval "exec ${RUN_AS} ${WEB_COMMAND}"
 
 elif [ "${CONTAINER_ROLE}" = "queue" ]; then
     echo "Starting queue service ..."
-    eval "exec ${QUEUE_COMMAND}"
+    eval "exec ${RUN_AS} ${QUEUE_COMMAND}"
  
 elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
     echo "Starting scheduler service ..."
     if [ "${SCHEDULER_MODE}" = "once" ] ; then
-        eval "exec ${SCHEDULER_COMMAND}"
+        eval "exec ${RUN_AS} ${SCHEDULER_COMMAND}"
     fi
     if [ "${SCHEDULER_MODE}" = "continuous" ] ; then
-        eval "exec ${SCHEDULER_LOOP_COMMAND}"
+        eval "exec ${RUN_AS} ${SCHEDULER_LOOP_COMMAND}"
     fi
 
 elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
@@ -144,19 +145,21 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     exec ${RUN_AS} "$@"
 
 else
-    # s6 supervises every service. The image filesystem can be read-only, so the service
-    # directories live in /tmp, in a directory only root can access. /tmp is often mounted
-    # noexec, so each run script is a link to a script in the image that reads its command
-    # from the environment.
+    # s6 supervises every service, and it runs as the application user too. That way it can
+    # signal the services on shutdown without CAP_KILL, and no root process keeps running.
+    # The image filesystem can be read-only, so the service directories live in /tmp, in a
+    # directory only the application user can access. /tmp is often mounted noexec, so each
+    # run script is a link to a script in the image that reads its command from the environment.
     SERVICES_DIR=/tmp/services
-    rm -rf ${SERVICES_DIR}
-    mkdir -m 700 ${SERVICES_DIR}
+    ${RUN_AS} rm -rf ${SERVICES_DIR} 2>/dev/null || true
+    rm -rf ${SERVICES_DIR} 2>/dev/null || true
+    ${RUN_AS} mkdir -m 700 ${SERVICES_DIR}
     export WEB_COMMAND QUEUE_COMMAND SCHEDULER_LOOP_COMMAND
 
     install_service() {
         echo "Installing $1 service ..."
-        mkdir ${SERVICES_DIR}/$1
-        ln -s /scripts/services/$1 ${SERVICES_DIR}/$1/run
+        ${RUN_AS} mkdir ${SERVICES_DIR}/$1
+        ${RUN_AS} ln -s /scripts/services/$1 ${SERVICES_DIR}/$1/run
     }
 
     if is_web; then
@@ -173,5 +176,5 @@ else
 
     echo "Starting installed services ..."
     echo ""
-    exec s6-svscan ${SERVICES_DIR}
+    exec ${RUN_AS} s6-svscan ${SERVICES_DIR}
 fi

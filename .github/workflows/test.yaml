@@ -87,7 +87,7 @@ jobs:
           done
           if [ "$(docker inspect --format '{{.State.Running}}' test)" = "true" ]; then
             echo "The container is still running 20 seconds after SIGTERM:"
-            docker exec test sh -c 'ps -o pid,ppid,user,stat,args; for s in /tmp/services/*; do echo "$s: $(s6-svstat $s)"; done'
+            docker exec --user app test sh -c 'ps -o pid,ppid,user,stat,args; for s in /tmp/services/*; do echo "$s: $(s6-svstat $s)"; done'
             exit 1
           fi
           code=$(docker inspect --format '{{.State.ExitCode}}' test)
