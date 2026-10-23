@@ -3,33 +3,47 @@ name: Test
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        php: ["8.2", "8.3", "8.4"]
-        laravel: ["9", "10", "11", "12"]
+        php: ["8.2", "8.3", "8.4", "8.5"]
+        laravel: ["9", "10", "11", "12", "13"]
         exclude:
           - php: "8.3"
             laravel: "9"
           - php: "8.4"
             laravel: "9"
+          - php: "8.5"
+            laravel: "9"
           - php: "8.4"
             laravel: "10"
+          - php: "8.5"
+            laravel: "10"
+          - php: "8.2"
+            laravel: "13"
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
 
       - name: Extend Dockerfile with laravel and npm installation
         run: |
+          # End of life Laravel versions only have releases with known security advisories, which composer blocks
+          if [ "${{ matrix.laravel }}" -le 11 ]; then
+            echo "ENV COMPOSER_NO_SECURITY_BLOCKING=1" >> Dockerfile
+          fi
           echo "" >> Dockerfile
-          echo "RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer" >> Dockerfile
           echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
-          echo "RUN chown www-data:www-data /srv/http/storage/logs" >> Dockerfile
+          echo "RUN echo secret > /srv/http/public/.env && mkdir -p /srv/http/public/.git /srv/http/public/.well-known && echo secret > /srv/http/public/.git/config && echo ok > /srv/http/public/.well-known/test.txt" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage" >> Dockerfile
 
       - name: Build Docker image
         run: |
@@ -38,17 +52,107 @@ jobs:
       - name: Run Docker container
         timeout-minutes: 1
         run: |
-          docker run --rm --detach --publish 8888:80 --name test --env WEB_HEALTHCHECK_PATH=/ test
+          # Run with the hardened settings recommended in the README
+          docker run --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
+            --env SESSION_DRIVER=file --env CACHE_STORE=file \
+            --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
+            --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
+            --volume storage:/srv/http/storage \
+            test
           while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
       
       - name: Check if container is available
         run: |
           curl --fail --silent http://localhost:8888 > /dev/null
 
+      - name: Check that dotfiles are not served
+        run: |
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8888/.env)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8888/.git/config)" = "404"
+          curl --fail --silent http://localhost:8888/.well-known/test.txt | grep -q ok
+
       - name: Run tests
         run: |
-          docker exec test php artisan test
+          # The filesystem is read-only, so PHPUnit can not write its result cache
+          docker exec --user app test php artisan test --do-not-cache-result
     
+      - name: Check that the container stops gracefully
+        run: |
+          # s6 has to pass SIGTERM on to the services, and every service has to exit on it.
+          # Otherwise docker waits for the whole timeout and kills the container (exit code 137).
+          docker kill --signal TERM test
+          for i in $(seq 1 20); do
+            [ "$(docker inspect --format '{{.State.Running}}' test)" = "false" ] && break
+            sleep 1
+          done
+          if [ "$(docker inspect --format '{{.State.Running}}' test)" = "true" ]; then
+            echo "The container is still running 20 seconds after SIGTERM:"
+            docker exec --user app test sh -c 'ps -o pid,ppid,user,stat,args; for s in /tmp/services/*; do echo "$s: $(s6-svstat $s)"; done'
+            exit 1
+          fi
+          code=$(docker inspect --format '{{.State.ExitCode}}' test)
+          echo "Stopped with exit code ${code}"
+          test "${code}" != "137"
+
+      - name: Remove Docker container
+        if: always()
+        continue-on-error: true
+        run: |
+          docker rm --force test
+
+  test-octane:
+    name: Test with Octane
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ["8.3", "8.5"]
+        laravel: ["12", "13"]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Extend Dockerfile with laravel and octane installation
+        run: |
+          echo "" >> Dockerfile
+          echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
+          echo "WORKDIR /srv/http" >> Dockerfile
+          echo "RUN composer require laravel/octane --no-interaction" >> Dockerfile
+          echo "RUN php artisan octane:install --server=frankenphp --no-interaction" >> Dockerfile
+          echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage" >> Dockerfile
+
+      - name: Build Docker image
+        run: |
+          docker build --build-arg PHP_VERSION=${{ matrix.php }} --tag test .
+
+      - name: Run Docker container
+        timeout-minutes: 2
+        run: |
+          docker run --rm --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
+            --env SESSION_DRIVER=file --env CACHE_STORE=file \
+            --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
+            --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
+            --volume storage:/srv/http/storage \
+            test
+          while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
+
+      - name: Check that Octane is running and serving requests
+        run: |
+          curl --fail --silent http://localhost:8888 > /dev/null
+          docker exec --user app test php artisan octane:status | grep -q "Octane server is running"
+
+      - name: Reload Octane workers
+        run: |
+          docker exec --user app test php artisan octane:reload
+          sleep 3
+          curl --fail --silent http://localhost:8888 > /dev/null
+          docker exec --user app test php artisan octane:status | grep -q "Octane server is running"
+
+      - name: Show container logs
+        if: failure()
+        run: |
+          docker logs test
+
       - name: Stop Docker container
         if: always()
         continue-on-error: true

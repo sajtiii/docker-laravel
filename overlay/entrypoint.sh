@@ -76,11 +76,19 @@ echo ""
 
 source /scripts/configure-php.sh
 
+# Rebuild the runtime caches on every start instead of reusing the ones from a previous run.
+# /tmp/laravel is owned by root with the sticky bit, so root can clear it and the application user can write it.
+# The application user removes its own files first, root (possibly without CAP_DAC_OVERRIDE) the rest.
+mkdir -p -m 1777 /tmp/laravel
+${RUN_AS} find /tmp/laravel -mindepth 1 -delete 2>/dev/null || true
+find /tmp/laravel -mindepth 1 -delete 2>/dev/null || true
+${RUN_AS} mkdir -p "${VIEW_COMPILED_PATH}"
+
 # Migrate DB if something changed and auto migrate is enabled
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate
     echo "Running migrations ..."
-    php ${APP_PATH}/artisan migrate --force
+    ${RUN_AS} php ${APP_PATH}/artisan migrate --force
     trigger postmigrate
 fi
 
@@ -89,96 +97,84 @@ trigger prestart
 # Optimize app if enabled
 if [ "${OPTIMIZE_CONFIG}" = true ] ; then
     echo "Optimizing configuration ..."
-    php ${APP_PATH}/artisan config:cache
+    ${RUN_AS} php ${APP_PATH}/artisan config:cache
 fi
 if [ "${OPTIMIZE_EVENTS}" = true ] ; then
     echo "Optimizing events ..."
-    php ${APP_PATH}/artisan event:cache
+    ${RUN_AS} php ${APP_PATH}/artisan event:cache
 fi
 if [ "${OPTIMIZE_ROUTES}" = true ] ; then
     echo "Optimizing routes ..."
-    php ${APP_PATH}/artisan route:cache
+    ${RUN_AS} php ${APP_PATH}/artisan route:cache
 fi
 if [ "${OPTIMIZE_VIEWS}" = true ] ; then
     echo "Optimizing views ..."
-    php ${APP_PATH}/artisan view:cache
+    ${RUN_AS} php ${APP_PATH}/artisan view:cache
 fi
 
-# Define commands
-WEB_COMMAND="docker-php-entrypoint --config /etc/caddy/Caddyfile --adapter caddyfile"
+# Define commands. They run as the application user: the entrypoint switches to it with
+# ${RUN_AS} right before starting them.
+WEB_COMMAND="/usr/local/bin/frankenphp run --config /etc/caddy/Caddyfile --adapter caddyfile"
 if [ "${OCTANE_ENABLED}" = true ] ; then
     WEB_COMMAND="php ${APP_PATH}/artisan octane:frankenphp --port=${PORT} --admin-port=${CADDY_ADMIN_PORT} --caddyfile=/etc/caddy/Caddyfile"
 fi
 QUEUE_COMMAND="php ${APP_PATH}/artisan queue:work --verbose --queue=${QUEUES} --sleep=${QUEUE_SLEEP:-3} --tries=${QUEUE_TRIES} --max-time=${QUEUE_TIMEOUT} --no-interaction"
 SCHEDULER_COMMAND="php ${APP_PATH}/artisan schedule:run --verbose --no-interaction"
-
-# Creating crond file
-if is_scheduler; then
-    date +%s > /tmp/scheduler-last-run
-    mkdir -p /etc/cron
-    echo "* * * * * ${SCHEDULER_COMMAND} > /dev/stdout 2>&1" > /etc/crontabs/root
-    echo "* * * * * date +%s > /tmp/scheduler-last-run 2>&1" >> /etc/crontabs/root 
-    echo "# empty line" >> /etc/crontabs/root
-fi
+SCHEDULER_LOOP_COMMAND="/scripts/scheduler-loop.sh"
 
 # Start necessary services
 if [ "${CONTAINER_ROLE}" = "web" ]; then
     echo "Starting web service ..."
-    eval "${WEB_COMMAND}"
+    eval "exec ${RUN_AS} ${WEB_COMMAND}"
 
 elif [ "${CONTAINER_ROLE}" = "queue" ]; then
     echo "Starting queue service ..."
-    eval "${QUEUE_COMMAND}"
+    eval "exec ${RUN_AS} ${QUEUE_COMMAND}"
  
 elif [ "${CONTAINER_ROLE}" = "scheduler" ]; then
     echo "Starting scheduler service ..."
     if [ "${SCHEDULER_MODE}" = "once" ] ; then
-        eval "${SCHEDULER_COMMAND}"
+        eval "exec ${RUN_AS} ${SCHEDULER_COMMAND}"
     fi
     if [ "${SCHEDULER_MODE}" = "continuous" ] ; then
-        exec crond -f
+        eval "exec ${RUN_AS} ${SCHEDULER_LOOP_COMMAND}"
     fi
- 
+
 elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     echo "Executing custom command [$@] ..."
-    exec "$@"
-    exit 0
+    exec ${RUN_AS} "$@"
 
 else
+    # s6 supervises every service, and it runs as the application user too. That way it can
+    # signal the services on shutdown without CAP_KILL, and no root process keeps running.
+    # The image filesystem can be read-only, so the service directories live in /tmp, in a
+    # directory only the application user can access. /tmp is often mounted noexec, so each
+    # run script is a link to a script in the image that reads its command from the environment.
+    SERVICES_DIR=/tmp/services
+    ${RUN_AS} rm -rf ${SERVICES_DIR} 2>/dev/null || true
+    rm -rf ${SERVICES_DIR} 2>/dev/null || true
+    ${RUN_AS} mkdir -m 700 ${SERVICES_DIR}
+    export WEB_COMMAND QUEUE_COMMAND SCHEDULER_LOOP_COMMAND
+
+    install_service() {
+        echo "Installing $1 service ..."
+        ${RUN_AS} mkdir ${SERVICES_DIR}/$1
+        ${RUN_AS} ln -s /scripts/services/$1 ${SERVICES_DIR}/$1/run
+    }
+
     if is_web; then
-        echo "Installing web service ..."
-        echo "[program:web]" >> /etc/supervisord.conf
-        echo "command=$WEB_COMMAND" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service web
     fi
 
     if is_queue; then
-        echo "Installing queue service ..."
-        echo "[program:queue]" >> /etc/supervisord.conf
-        echo "command=$QUEUE_COMMAND" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service queue
     fi
 
     if is_scheduler; then
-        echo "Installing scheduler service ..."
-        echo "[program:scheduler]" >> /etc/supervisord.conf
-        echo "command=crond -f" >> /etc/supervisord.conf
-        echo "stdout_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stdout_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "stderr_logfile=/dev/fd/1" >> /etc/supervisord.conf
-        echo "stderr_logfile_maxbytes=0" >> /etc/supervisord.conf
-        echo "" >> /etc/supervisord.conf
+        install_service scheduler
     fi
 
     echo "Starting installed services ..."
     echo ""
-    exec supervisord -n -c /etc/supervisord.conf
+    exec ${RUN_AS} s6-svscan ${SERVICES_DIR}
 fi

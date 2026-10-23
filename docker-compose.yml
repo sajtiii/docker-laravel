@@ -1,23 +1,44 @@
+# Hardened runtime settings shared by all services
+x-hardening: &hardening
+  read_only: true
+  cap_drop:
+    - ALL
+  cap_add:
+    # Needed by the entrypoint to start the processes as PUID/PGID (the app user by default)
+    - SETUID
+    - SETGID
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:mode=1777
+    - /config:mode=1777
+    - /data:mode=1777
+  volumes:
+    - storage:/srv/http/storage
+
 services:
   all:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "80:80"
+      - "80:8080"
     environment:
       - CONTAINER_ROLE=web,queue,scheduler
 
   web:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     ports:
-      - "81:80"
+      - "81:8080"
     environment:
       - CONTAINER_ROLE=web
 
   queue:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
@@ -25,8 +46,12 @@ services:
       - CONTAINER_ROLE=queue
 
   scheduler:
+    <<: *hardening
     build:
       context: .
       dockerfile: Dockerfile.example
     environment:
       - CONTAINER_ROLE=scheduler
+
+volumes:
+  storage:

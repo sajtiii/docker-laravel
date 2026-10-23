@@ -1,0 +1,144 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+permissions: {}
+
+jobs:
+  nightly:
+    name: Nightly build and scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      issues: write
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ["8.2", "8.3", "8.4", "8.5"]
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=nightly,enable=${{ matrix.php == '8.5' }}
+            type=raw,value=nightly-php${{ matrix.php }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR.io
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build without cache, so the build always picks up base image and package updates
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          pull: true
+          no-cache: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PHP_VERSION=${{ matrix.php }}
+          platforms: linux/386,linux/amd64,linux/arm/v7,linux/arm64
+          provenance: mode=max
+          sbom: true
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the image
+        run: cosign sign --yes "${REGISTRY}/${{ github.repository }}@${{ steps.build.outputs.digest }}"
+
+      - name: Scan image with Trivy
+        id: trivy
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          format: table
+          output: trivy-report.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore.yaml
+          exit-code: '1'
+
+      - name: Update tracking issue
+        uses: actions/github-script@v7
+        env:
+          PHP_VERSION: ${{ matrix.php }}
+          HAS_FINDINGS: ${{ steps.trivy.outcome == 'failure' }}
+          IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const fs = require('fs');
+            const php = process.env.PHP_VERSION;
+            const title = `Nightly Trivy scan: PHP ${php}`;
+            const label = 'nightly-scan';
+            const hasFindings = process.env.HAS_FINDINGS === 'true';
+
+            const { data: issues } = await github.rest.issues.listForRepo({
+              ...context.repo, state: 'open', labels: label, per_page: 100,
+            });
+            const existing = issues.find(i => i.title === title);
+
+            if (!hasFindings) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  ...context.repo, issue_number: existing.number,
+                  body: `No fixable HIGH or CRITICAL vulnerabilities found in the latest nightly build ([run](${process.env.RUN_URL})). Closing.`,
+                });
+                await github.rest.issues.update({
+                  ...context.repo, issue_number: existing.number, state: 'closed', state_reason: 'completed',
+                });
+              }
+              return;
+            }
+
+            const report = fs.readFileSync('trivy-report.txt', 'utf8').slice(0, 60000);
+            const body = [
+              `Fixable HIGH or CRITICAL vulnerabilities found in \`nightly-php${php}\`.`,
+              '',
+              `- Image: \`${process.env.IMAGE_DIGEST}\``,
+              `- Run: ${process.env.RUN_URL}`,
+              `- Updated: ${new Date().toISOString()}`,
+              '',
+              '<details>',
+              `<summary>Trivy report: PHP ${php}</summary>`,
+              '',
+              '```',
+              report,
+              '```',
+              '</details>',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.update({ ...context.repo, issue_number: existing.number, body });
+            } else {
+              await github.rest.issues.create({ ...context.repo, title, body, labels: [label] });
+            }
