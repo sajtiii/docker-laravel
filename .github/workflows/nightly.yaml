@@ -88,7 +88,7 @@ jobs:
           exit-code: '1'
 
       - name: Update tracking issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           PHP_VERSION: ${{ matrix.php }}
           HAS_FINDINGS: ${{ steps.trivy.outcome == 'failure' }}
