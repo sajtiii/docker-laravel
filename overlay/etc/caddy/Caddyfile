@@ -8,6 +8,14 @@
     frankenphp {
         {$CADDY_FRANKENPHP_CONFIG}
     }
+
+    # Do not keep connections of slow or idle clients open forever
+    servers {
+        timeouts {
+            read_header 10s
+            idle 2m
+        }
+    }
 }
 
 http://:{$PORT} {
@@ -15,6 +23,13 @@ http://:{$PORT} {
         root * "{$APP_PATH}/public"
 
         encode zstd br gzip
+
+        # Never serve dotfiles and dot directories (.env, .git, ...), except /.well-known/
+        @dotfiles {
+            path_regexp dotfiles (^|/)\.[^/]
+            not path /.well-known/*
+        }
+        respond @dotfiles 404
 
         @static {
             path *.css *.js

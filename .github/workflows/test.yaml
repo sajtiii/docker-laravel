@@ -42,6 +42,7 @@ jobs:
           echo "RUN composer create-project --prefer-dist \"laravel/laravel:^${{ matrix.laravel }}\" /srv/http" >> Dockerfile
           echo "WORKDIR /srv/http" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
+          echo "RUN echo secret > /srv/http/public/.env && mkdir -p /srv/http/public/.git /srv/http/public/.well-known && echo secret > /srv/http/public/.git/config && echo ok > /srv/http/public/.well-known/test.txt" >> Dockerfile
           echo "RUN chown -R app:app /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
 
       - name: Build Docker image
@@ -63,6 +64,12 @@ jobs:
       - name: Check if container is available
         run: |
           curl --fail --silent http://localhost:8888 > /dev/null
+
+      - name: Check that dotfiles are not served
+        run: |
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8888/.env)" = "404"
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://localhost:8888/.git/config)" = "404"
+          curl --fail --silent http://localhost:8888/.well-known/test.txt | grep -q ok
 
       - name: Run tests
         run: |
