@@ -22,6 +22,11 @@ http://:{$PORT} {
     route {
         root * "{$APP_PATH}/public"
 
+        # Same as the PHP upload limit (UPLOAD_LIMIT)
+        request_body {
+            max_size {$CADDY_MAX_BODY_SIZE}
+        }
+
         encode zstd br gzip
 
         # Never serve dotfiles and dot directories (.env, .git, ...), except /.well-known/

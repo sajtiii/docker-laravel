@@ -11,7 +11,7 @@ ENV PHP_VERSION=${PHP_VERSION}
 # install-php-extensions come with it as well, so projects built on this image can use them.
 # They are not downloaded here.
 RUN apk add --no-cache \
-    supervisor \
+    s6 \
     curl \
     su-exec
 
@@ -41,6 +41,10 @@ ADD overlay/ /
 RUN chmod +x /entrypoint.sh && \
     chmod +x /healthcheck.sh && \
     chmod -R +x /scripts/*
+
+# Nothing in the image needs setuid or setgid binaries (processes are started by root and
+# switch user with su-exec), so remove the bits to rule out privilege escalation through them
+RUN find / -xdev -type f -perm /6000 -exec chmod a-s {} +
 
 
 ENTRYPOINT [ "/entrypoint.sh" ]

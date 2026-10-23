@@ -136,21 +136,17 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     exec ${RUN_AS} "$@"
 
 else
-    # The image filesystem can be read-only, so the generated config lives in /tmp
-    SUPERVISORD_CONFIG=/tmp/supervisord.conf
-    cp /etc/supervisord.conf ${SUPERVISORD_CONFIG}
+    # Every service is supervised by s6. The image filesystem can be read-only, so the
+    # service definitions live in /tmp, in a directory only root can access.
+    SERVICES_DIR=/tmp/services
+    rm -rf ${SERVICES_DIR}
+    mkdir -m 700 ${SERVICES_DIR}
 
     install_service() {
         echo "Installing $1 service ..."
-        {
-            echo "[program:$1]"
-            echo "command=$2"
-            echo "stdout_logfile=/dev/fd/1"
-            echo "stdout_logfile_maxbytes=0"
-            echo "stderr_logfile=/dev/fd/1"
-            echo "stderr_logfile_maxbytes=0"
-            echo ""
-        } >> ${SUPERVISORD_CONFIG}
+        mkdir ${SERVICES_DIR}/$1
+        printf '#!/bin/sh\nexec 2>&1\nexec %s\n' "$2" > ${SERVICES_DIR}/$1/run
+        chmod 700 ${SERVICES_DIR}/$1/run
     }
 
     if is_web; then
@@ -167,5 +163,5 @@ else
 
     echo "Starting installed services ..."
     echo ""
-    exec supervisord -n -c ${SUPERVISORD_CONFIG}
+    exec s6-svscan ${SERVICES_DIR}
 fi
