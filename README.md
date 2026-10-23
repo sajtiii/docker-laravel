@@ -1,12 +1,12 @@
 # Laravel Docker
 
-Just a simple docker image used to run laravel applications with or withput octane. \
+Just a simple Docker image used to run Laravel applications with or without Octane. \
 It also incorporates queue and scheduler services.
 The services can be selected using the `CONTAINER_ROLE` environment variable.
 `CONTAINER_ROLE` can be any of the following: `web`, `queue`, `scheduler` or `cmd`, or a combination of them, like: `web,scheduler`, `web,queue`, `queue,scheduler` or `web,queue,scheduler`
 
 ## Change in versioning schema
-The project initially followed the Laravel versioning scheme (eg.: `:v11` container for Laravel 11), but it is not changed, and the project follows semantic versioning from `v1`.
+The project initially followed the Laravel versioning scheme (e.g. `:v11` container for Laravel 11), but this has changed, and the project follows semantic versioning since `v1`.
 
 ## Image tags
 
@@ -21,7 +21,7 @@ The nightly workflow scans these images with [Trivy](https://trivy.dev) and trac
 
 ## Compatibility matrix
 
-Multiple PHP versions are available from the container, which are compatible with the following Laraver versions:
+Multiple PHP versions are available from the container, which are compatible with the following Laravel versions:
 
 |            | PHP 8.2 | PHP 8.3 | PHP 8.4 | PHP 8.5 |
 |------------|:-------:|:-------:|:-------:|:-------:|
@@ -97,8 +97,8 @@ Put anything else the application writes, such as a SQLite database, on a volume
 | `PGID` | `1000` (the `app` group) | Numeric group ID the application processes run as. |
 
 ## Development
-A new laravel app (with octane optionally) installed inside the `www` folder is required. \
-To install a fresh laravel in that folder run the following commands:
+A new Laravel app (optionally with Octane) installed inside the `www` folder is required. \
+To install a fresh Laravel app in that folder, run the following commands:
 
 - `curl -s https://laravel.build/www?with=none | bash`
 - `cd www`

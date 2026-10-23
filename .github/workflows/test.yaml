@@ -53,7 +53,7 @@ jobs:
         timeout-minutes: 1
         run: |
           # Run with the hardened settings recommended in the README
-          docker run --rm --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
+          docker run --detach --publish 8888:8080 --name test --env WEB_HEALTHCHECK_PATH=/ \
             --env SESSION_DRIVER=file --env CACHE_STORE=file \
             --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
             --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
@@ -76,11 +76,23 @@ jobs:
           # The filesystem is read-only, so PHPUnit can not write its result cache
           docker exec --user app test php artisan test --do-not-cache-result
     
-      - name: Stop Docker container
+      - name: Check that the container stops gracefully
+        run: |
+          # s6 has to pass SIGTERM on to the services. If it does not, docker waits for the
+          # whole timeout and kills the container (exit code 137).
+          start=$(date +%s)
+          docker stop --time 30 test
+          took=$(( $(date +%s) - start ))
+          code=$(docker inspect --format '{{.State.ExitCode}}' test)
+          echo "Stopped in ${took}s with exit code ${code}"
+          test "${took}" -lt 20
+          test "${code}" != "137"
+
+      - name: Remove Docker container
         if: always()
         continue-on-error: true
         run: |
-          docker stop test
+          docker rm --force test
 
   test-octane:
     name: Test with Octane
