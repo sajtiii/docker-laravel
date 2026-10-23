@@ -42,9 +42,6 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ github.repository }}
-          labels: |
-            org.opencontainers.image.description=A simple Laravel container with Octane, Queue and Scheduler
-            org.opencontainers.image.licenses=MIT
           flavor: |
             latest=false
           tags: |
