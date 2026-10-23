@@ -33,6 +33,15 @@ RUN printf '#!/bin/sh\nexec /usr/local/bin/frankenphp "$@"\n' > /usr/local/utils
 # Caddy keeps its state here, and it has to be writable for any PUID/PGID
 RUN find /config /data -type d -exec chmod 1777 {} +
 
+# Caches generated at runtime (config, routes, events, compiled views) live outside the
+# application, so bootstrap/cache and storage never contain stale caches of an older image.
+# bootstrap/cache only keeps the package manifests created by `composer install` at build time.
+ENV APP_CONFIG_CACHE=/tmp/laravel/config.php \
+    APP_ROUTES_CACHE=/tmp/laravel/routes-v7.php \
+    APP_EVENTS_CACHE=/tmp/laravel/events.php \
+    VIEW_COMPILED_PATH=/tmp/laravel/views
+RUN mkdir -m 1777 /tmp/laravel /tmp/laravel/views
+
 ENV APP_PATH=/srv/http
 WORKDIR /srv/http
 

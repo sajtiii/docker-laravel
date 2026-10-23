@@ -43,7 +43,7 @@ jobs:
           echo "WORKDIR /srv/http" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
           echo "RUN echo secret > /srv/http/public/.env && mkdir -p /srv/http/public/.git /srv/http/public/.well-known && echo secret > /srv/http/public/.git/config && echo ok > /srv/http/public/.well-known/test.txt" >> Dockerfile
-          echo "RUN chown -R app:app /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage" >> Dockerfile
 
       - name: Build Docker image
         run: |
@@ -57,7 +57,7 @@ jobs:
             --env SESSION_DRIVER=file --env CACHE_STORE=file \
             --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
             --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
-            --volume storage:/srv/http/storage --volume bootstrap-cache:/srv/http/bootstrap/cache \
+            --volume storage:/srv/http/storage \
             test
           while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
       
@@ -101,7 +101,7 @@ jobs:
           echo "RUN composer require laravel/octane --no-interaction" >> Dockerfile
           echo "RUN php artisan octane:install --server=frankenphp --no-interaction" >> Dockerfile
           echo "RUN mkdir -p /srv/http/storage/logs" >> Dockerfile
-          echo "RUN chown -R app:app /srv/http/storage /srv/http/bootstrap/cache" >> Dockerfile
+          echo "RUN chown -R app:app /srv/http/storage" >> Dockerfile
 
       - name: Build Docker image
         run: |
@@ -114,7 +114,7 @@ jobs:
             --env SESSION_DRIVER=file --env CACHE_STORE=file \
             --read-only --cap-drop ALL --cap-add SETUID --cap-add SETGID --security-opt no-new-privileges:true \
             --tmpfs /tmp:mode=1777 --tmpfs /config:mode=1777 --tmpfs /data:mode=1777 \
-            --volume storage:/srv/http/storage --volume bootstrap-cache:/srv/http/bootstrap/cache \
+            --volume storage:/srv/http/storage \
             test
           while [ "`docker inspect -f {{.State.Health.Status}} test`" != "healthy" ]; do sleep 2; done
 

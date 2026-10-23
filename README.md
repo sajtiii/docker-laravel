@@ -38,9 +38,10 @@ Laravel 9, 10 and 11 are end of life upstream, they are still tested for legacy 
 The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) and runs with less privileges. Things to be aware of when coming from v1:
 
 - **Default port is `8080`** instead of `80`, so no extra capability is needed. Set `PORT` to change it, and publish it accordingly (`-p 80:8080`). `EXPOSE`, the healthcheck and the Caddy config follow `PORT`.
-- **Everything runs as the `app` user (`1000:1000`) by default**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint, the s6 supervisor (used when multiple roles are combined) and the application hook scripts (`preconfig.sh`, `postconfig.sh`, `premigrate.sh`, `postmigrate.sh`, `prestart.sh`, `healthcheck.sh` in the application directory) stay root. Set `PUID` and `PGID` to run as another numeric user and group (no passwd entry is needed). Volumes with files owned by the v1 `www-data` user (uid 82) have to be `chown`ed. `storage` and `bootstrap/cache` must be writable by that user (see `Dockerfile.example`).
+- **Everything runs as the `app` user (`1000:1000`) by default**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint, the s6 supervisor (used when multiple roles are combined) and the application hook scripts (`preconfig.sh`, `postconfig.sh`, `premigrate.sh`, `postmigrate.sh`, `prestart.sh`, `healthcheck.sh` in the application directory) stay root. Set `PUID` and `PGID` to run as another numeric user and group (no passwd entry is needed). Volumes with files owned by the v1 `www-data` user (uid 82) have to be `chown`ed. `storage` must be writable by that user (see `Dockerfile.example`).
 - **The scheduler no longer uses cron.** It runs `artisan schedule:run` at the start of every minute from a small loop, without root and without waiting for overlapping runs.
 - **The Caddy admin API listens on `localhost` only** (`CADDY_ADMIN_PORT`, default `2019`, the Caddy default), so it is not reachable from other containers.
+- **Runtime caches are kept in `/tmp/laravel`** and rebuilt on every start: the config, route and event caches (`APP_CONFIG_CACHE`, `APP_ROUTES_CACHE`, `APP_EVENTS_CACHE`) and the compiled views (`VIEW_COMPILED_PATH`). `bootstrap/cache` no longer has to be writable or mounted, it only keeps the package manifests created by `composer install`, so remove any volume mounted there (an old volume would keep the package manifests of the previous image). Compiled views are not stored in `storage/framework/views` anymore.
 - **Services are supervised by [s6](https://skarnet.org/software/s6/)** instead of supervisord when multiple roles are combined, so the image no longer contains Python. Crashed services are restarted after a second, without giving up.
 - **Request bodies are limited by `UPLOAD_LIMIT`** in Caddy too, so larger uploads are rejected before they reach PHP.
 - **No setuid or setgid binaries**: the bits are removed from everything in the image.
@@ -69,7 +70,6 @@ services:
       - /data:mode=1777
     volumes:
       - storage:/srv/http/storage
-      - bootstrap-cache:/srv/http/bootstrap/cache
 ```
 
 Everything else the application writes (for example a SQLite database) has to live on a volume as well. See `docker-compose.yml` for a complete example.

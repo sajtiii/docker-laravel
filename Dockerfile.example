@@ -17,8 +17,7 @@ COPY --from=build-node /app/public/build /srv/http/public/build
 # Composer is bundled with the image
 RUN composer install --no-ansi --no-dev --no-interaction --no-plugins --no-progress --optimize-autoloader
 
-# The application runs as the app user (1000:1000), so these have to be writable by it
+# The application runs as the app user (1000:1000), so storage has to be writable by it
 RUN mkdir -p /srv/http/storage/logs && \
     chown app:app /srv/http/storage -R && \
-    chown app:app /srv/http/bootstrap/cache -R && \
     chown app:app /srv/http/public/build -R

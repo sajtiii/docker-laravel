@@ -76,6 +76,14 @@ echo ""
 
 source /scripts/configure-php.sh
 
+# Runtime caches are rebuilt on every start, never reuse the ones of a previous run.
+# /tmp/laravel is owned by root with the sticky bit, so root can clear it and the application user can write it.
+# The application user removes its own files first, root (possibly without CAP_DAC_OVERRIDE) the rest.
+mkdir -p -m 1777 /tmp/laravel
+${RUN_AS} find /tmp/laravel -mindepth 1 -delete 2>/dev/null || true
+find /tmp/laravel -mindepth 1 -delete 2>/dev/null || true
+${RUN_AS} mkdir -p "${VIEW_COMPILED_PATH}"
+
 # Migrate DB if something changed and auto migrate is enabled
 if [ "${AUTO_MIGRATE}" = true ] ; then
     trigger premigrate

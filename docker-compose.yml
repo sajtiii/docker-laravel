@@ -15,7 +15,6 @@ x-hardening: &hardening
     - /data:mode=1777
   volumes:
     - storage:/srv/http/storage
-    - bootstrap-cache:/srv/http/bootstrap/cache
 
 services:
   all:
@@ -56,4 +55,3 @@ services:
 
 volumes:
   storage:
-  bootstrap-cache:
