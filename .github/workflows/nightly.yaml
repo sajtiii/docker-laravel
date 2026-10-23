@@ -48,7 +48,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # No cache, so upstream base image and package updates are always picked up
+      # Build without cache, so the build always picks up base image and package updates
       - name: Build and push Docker image
         id: build
         uses: docker/build-push-action@v5

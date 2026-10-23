@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Runs the Laravel scheduler at the start of every minute, without cron and without root.
-# The timestamp of the last run is used by the healthcheck.
+# The healthcheck reads the timestamp of the last run.
 
 while true; do
     date +%s > /tmp/scheduler-last-run

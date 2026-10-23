@@ -6,17 +6,16 @@ ENV TZ=UTC
 ENV PHP_VERSION=${PHP_VERSION}
 
 
-# The base image already provides every PHP extension Laravel (and Octane) needs,
-# including pcntl, redis, pdo_*, zip, intl, exif and gd. Composer and
-# install-php-extensions come with it as well, so projects built on this image can use them.
-# They are not downloaded here.
+# The base image already has every PHP extension Laravel and Octane need (including pcntl,
+# redis, pdo_*, zip, intl, exif and gd), plus Composer and install-php-extensions, so projects
+# built on this image can use them without installing anything.
 RUN apk add --no-cache \
     s6 \
     curl \
     su-exec
 
-# The default port is above 1024, so the file capability that allows binding
-# privileged ports is not needed. Dropping it lets the container run without NET_BIND_SERVICE.
+# The default port is above 1024, so the image does not need the file capability for binding
+# privileged ports. Without it, the container runs without NET_BIND_SERVICE.
 RUN apk add --no-cache --virtual .setcap libcap-setcap && \
     setcap -r /usr/local/bin/frankenphp && \
     apk del .setcap

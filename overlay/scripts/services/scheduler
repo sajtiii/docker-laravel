@@ -1,5 +1,5 @@
 #!/bin/sh
 
-# s6 run script, the command is set by the entrypoint
+# s6 run script. The entrypoint sets the command.
 exec 2>&1
 eval "exec ${SCHEDULER_LOOP_COMMAND}"

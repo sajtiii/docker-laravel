@@ -17,7 +17,7 @@ The project initially followed the Laravel versioning scheme (eg.: `:v11` contai
 | `edge`, `edge-phpX.Y`              | Latest `main` branch builds                                                 |
 | `nightly`, `nightly-phpX.Y`        | Rebuilt every night from `main` without cache, to pick up base image and package updates |
 
-The nightly images are scanned with [Trivy](https://trivy.dev). Fixable `HIGH` and `CRITICAL` vulnerabilities are tracked in one issue per PHP version (label `nightly-scan`), which is closed automatically when the findings are gone.
+The nightly workflow scans these images with [Trivy](https://trivy.dev) and tracks fixable `HIGH` and `CRITICAL` vulnerabilities in one issue per PHP version (label `nightly-scan`). It closes the issue once the findings are gone.
 
 ## Compatibility matrix
 
@@ -31,26 +31,28 @@ Multiple PHP versions are available from the container, which are compatible wit
 | Laravel 12 | &check; | &check; | &check; | &check; |
 | Laravel 13 |         | &check; | &check; | &check; |
 
-Laravel 9, 10 and 11 are end of life upstream, they are still tested for legacy applications, but Laravel does not provide fixes for them anymore.
+Laravel 9, 10 and 11 are end of life upstream. The CI still tests them for legacy applications, but Laravel no longer fixes them.
 
 ## Upgrading to v2
 
-The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) and runs with less privileges. Things to be aware of when coming from v1:
+The image is based on [`shinsenter/frankenphp`](https://hub.docker.com/r/shinsenter/frankenphp) and runs with fewer privileges. Changes since v1:
 
-- **Default port is `8080`** instead of `80`, so no extra capability is needed. Set `PORT` to change it, and publish it accordingly (`-p 80:8080`). `EXPOSE`, the healthcheck and the Caddy config follow `PORT`.
-- **Everything runs as the `app` user (`1000:1000`) by default**: the web server, queue worker, scheduler, `artisan` commands run by the entrypoint (migrations, caches) and the `cmd` role. Only the entrypoint, the s6 supervisor (used when multiple roles are combined) and the application hook scripts (`preconfig.sh`, `postconfig.sh`, `premigrate.sh`, `postmigrate.sh`, `prestart.sh`, `healthcheck.sh` in the application directory) stay root. Set `PUID` and `PGID` to run as another numeric user and group (no passwd entry is needed). Volumes with files owned by the v1 `www-data` user (uid 82) have to be `chown`ed. `storage` must be writable by that user (see `Dockerfile.example`).
-- **The scheduler no longer uses cron.** It runs `artisan schedule:run` at the start of every minute from a small loop, without root and without waiting for overlapping runs.
-- **The Caddy admin API listens on `localhost` only** (`CADDY_ADMIN_PORT`, default `2019`, the Caddy default), so it is not reachable from other containers.
-- **Runtime caches are kept in `/tmp/laravel`** and rebuilt on every start: the config, route and event caches (`APP_CONFIG_CACHE`, `APP_ROUTES_CACHE`, `APP_EVENTS_CACHE`) and the compiled views (`VIEW_COMPILED_PATH`). `bootstrap/cache` no longer has to be writable or mounted, it only keeps the package manifests created by `composer install`, so remove any volume mounted there (an old volume would keep the package manifests of the previous image). Compiled views are not stored in `storage/framework/views` anymore.
-- **Services are supervised by [s6](https://skarnet.org/software/s6/)** instead of supervisord when multiple roles are combined, so the image no longer contains Python. Crashed services are restarted after a second, without giving up.
-- **Request bodies are limited by `UPLOAD_LIMIT`** in Caddy too, so larger uploads are rejected before they reach PHP.
-- **No setuid or setgid binaries**: the bits are removed from everything in the image.
-- **Hardened PHP defaults**: `expose_php`, `display_errors` and `allow_url_include` are off, sessions use strict mode and `HttpOnly`, `SameSite=Lax` cookies. Override them with your own ini file in `$PHP_INI_DIR/conf.d`.
-- **Extensions**: all extensions needed by Laravel and Octane (including `pcntl`, `redis`, `gd`, `intl`, `zip`) come with the base image. Composer and `install-php-extensions` are also included, so they do not have to be installed in projects built on this image.
+- **Default port 8080.** The app listens on `8080` instead of `80`, so it needs no extra capability. Set `PORT` to change it and publish that port (`-p 80:8080`). The healthcheck and the Caddy config follow `PORT`, but `EXPOSE` always says `8080`.
+- **Non-root processes.** The web server, queue worker, scheduler, the `cmd` role and the `artisan` commands the entrypoint runs (migrations, caches) all run as the `app` user (`1000:1000`). Only the entrypoint, the s6 supervisor and the application hook scripts (`preconfig.sh`, `postconfig.sh`, `premigrate.sh`, `postmigrate.sh`, `prestart.sh` and `healthcheck.sh` in the application directory) run as root.
+- **`PUID` and `PGID`.** Set them to run as another numeric user and group. The user does not need a passwd entry. That user must be able to write `storage` (see `Dockerfile.example`), so `chown` any volume with files owned by the v1 `www-data` user (uid 82).
+- **The scheduler no longer uses cron.** A small loop runs `artisan schedule:run` at the start of every minute, without root. A run that takes longer than a minute delays the next one instead of overlapping it.
+- **Caddy admin API on `localhost` only.** Other containers can not reach it. `CADDY_ADMIN_PORT` sets the port, which defaults to Caddy's own default, `2019`.
+- **Runtime caches in `/tmp/laravel`.** The entrypoint rebuilds the config, route and event caches (`APP_CONFIG_CACHE`, `APP_ROUTES_CACHE`, `APP_EVENTS_CACHE`) and the compiled views (`VIEW_COMPILED_PATH`) there on every start. Compiled views no longer go to `storage/framework/views`.
+- **No `bootstrap/cache` volume.** The directory does not have to be writable anymore. It only holds the package manifests that `composer install` writes at build time. Remove any volume mounted there, because it would keep the package manifests of the previous image.
+- **s6 instead of supervisord.** When you combine roles, [s6](https://skarnet.org/software/s6/) supervises the services, so the image no longer contains Python. s6 restarts a crashed service after one second and keeps retrying.
+- **Request body limit.** Caddy rejects request bodies larger than `UPLOAD_LIMIT` before they reach PHP.
+- **No setuid or setgid binaries.** The build removes these bits from every file in the image.
+- **Hardened PHP defaults.** `expose_php`, `display_errors` and `allow_url_include` are off. Sessions use strict mode and `HttpOnly`, `SameSite=Lax` cookies. To change them, add your own ini file to `$PHP_INI_DIR/conf.d`.
+- **Bundled extensions and tools.** The base image has every extension Laravel and Octane need, including `pcntl`, `redis`, `gd`, `intl` and `zip`. It also has Composer and `install-php-extensions`, so projects built on this image do not have to install them.
 
 ## Running hardened
 
-The image can run with a read-only filesystem and without any extra privileges. The runtime only needs to be able to switch to the `PUID`/`PGID` user (`app`, `1000:1000` by default), and write to the `tmpfs` mounts and volumes below:
+The image runs with a read-only filesystem and only two capabilities, `SETUID` and `SETGID`, which the entrypoint needs to switch to the `PUID`/`PGID` user. It only writes to the `tmpfs` mounts and the volume below:
 
 ```yaml
 services:
@@ -72,19 +74,19 @@ services:
       - storage:/srv/http/storage
 ```
 
-Everything else the application writes (for example a SQLite database) has to live on a volume as well. See `docker-compose.yml` for a complete example.
+Put anything else the application writes, such as a SQLite database, on a volume too. `docker-compose.yml` has a complete example.
 
 ## Supply chain
 
-- The base image is rebuilt upstream whenever PHP or Alpine publish updates, and this image is rebuilt every night to pick them up.
-- Every image is built with SBOM and max provenance attestations, and non-PR images are signed with [cosign](https://docs.sigstore.dev/cosign/overview/) (keyless). Verify with:
+- The upstream project rebuilds the base image whenever PHP or Alpine publish updates, and the nightly workflow rebuilds this image to pick them up.
+- CI builds every image with SBOM and max provenance attestations, and signs every image outside pull requests with [cosign](https://docs.sigstore.dev/cosign/overview/) (keyless). To verify a signature:
 
   ```sh
   cosign verify ghcr.io/sajtiii/docker-laravel:latest \
     --certificate-identity-regexp 'https://github.com/sajtiii/docker-laravel/.*' \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   ```
-- Pull requests get a [Trivy](https://trivy.dev) report per PHP version as a comment, and a release is not published if it contains a fixable `CRITICAL` vulnerability.
+- Each pull request gets a [Trivy](https://trivy.dev) report per PHP version as a comment. The publish workflow does not release an image with a fixable `CRITICAL` vulnerability.
 - The workflows run with minimal permissions.
 
 ## Configuration

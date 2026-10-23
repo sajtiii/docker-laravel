@@ -76,7 +76,7 @@ echo ""
 
 source /scripts/configure-php.sh
 
-# Runtime caches are rebuilt on every start, never reuse the ones of a previous run.
+# Rebuild the runtime caches on every start instead of reusing the ones from a previous run.
 # /tmp/laravel is owned by root with the sticky bit, so root can clear it and the application user can write it.
 # The application user removes its own files first, root (possibly without CAP_DAC_OVERRIDE) the rest.
 mkdir -p -m 1777 /tmp/laravel
@@ -144,10 +144,10 @@ elif [ "${CONTAINER_ROLE}" = "cmd" ]; then
     exec ${RUN_AS} "$@"
 
 else
-    # Every service is supervised by s6. The image filesystem can be read-only, so the
-    # service directories live in /tmp, in a directory only root can access. /tmp is often
-    # mounted noexec, so the run scripts are links to scripts in the image, which read their
-    # command from the environment.
+    # s6 supervises every service. The image filesystem can be read-only, so the service
+    # directories live in /tmp, in a directory only root can access. /tmp is often mounted
+    # noexec, so each run script is a link to a script in the image that reads its command
+    # from the environment.
     SERVICES_DIR=/tmp/services
     rm -rf ${SERVICES_DIR}
     mkdir -m 700 ${SERVICES_DIR}

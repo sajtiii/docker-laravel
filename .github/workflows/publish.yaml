@@ -70,7 +70,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Single platform build, only used for scanning. The layers are reused by the final build.
+      # Single platform build, only for scanning. The final build reuses its layers.
       - name: Build image for scanning
         uses: docker/build-push-action@v5
         with:
@@ -116,7 +116,7 @@ jobs:
           header: trivy-php${{ matrix.php }}
           path: trivy-comment.md
 
-      # Releases are not published while fixable critical vulnerabilities are present
+      # Do not publish a release that has fixable critical vulnerabilities
       - name: Gate release on critical vulnerabilities
         if: github.event_name == 'release'
         uses: aquasecurity/trivy-action@v0.36.0
