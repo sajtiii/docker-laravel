@@ -1,10 +1,5 @@
 name: Publish
 
-# This workflow uses actions that are not certified by GitHub.
-# They are provided by a third-party and are governed by
-# separate terms of service, privacy policy, and support
-# documentation.
-
 on:
   push:
     branches:
@@ -14,9 +9,9 @@ on:
   pull_request:
     branches:
       - 'main'
-
-env:
-  REGISTRY: ghcr.io
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
 
 permissions: {}
 
@@ -31,123 +26,19 @@ jobs:
       id-token: write
       attestations: write
     strategy:
+      fail-fast: false
       matrix:
         php: ["8.2", "8.3", "8.4", "8.5"]
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v6
+      - name: Build, scan and publish
+        uses: sajtiii/github-actions/docker-build@v1
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
-          flavor: |
-            latest=false
-          tags: |
-            type=raw,value=latest,enable=${{ matrix.php == '8.5' && github.event_name == 'release' }}
-
-            type=semver,pattern=v{{version}},enable=${{ matrix.php == '8.5' }}
-            type=semver,pattern=v{{major}}.{{minor}},enable=${{ matrix.php == '8.5' }}
-            type=semver,pattern=v{{major}},enable=${{ matrix.php == '8.5' }}
-            type=edge,branch=main,enable=${{ matrix.php == '8.5' }}
-
-            type=raw,value=php${{ matrix.php }},enable=${{ github.event_name == 'release' }}
-
-            type=semver,pattern=v{{version}},suffix=-php${{ matrix.php }}
-            type=semver,pattern=v{{major}}.{{minor}},suffix=-php${{ matrix.php }}
-            type=semver,pattern=v{{major}},suffix=-php${{ matrix.php }}
-            type=edge,branch=main,suffix=-php${{ matrix.php }}
-            type=ref,event=pr,suffix=-php${{ matrix.php }}
-      
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to GHCR.io
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Single platform build, only for scanning. The final build reuses its layers.
-      - name: Build image for scanning
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          load: true
-          push: false
-          tags: scan:php${{ matrix.php }}
-          cache-from: type=gha,scope=php${{ matrix.php }}
-          cache-to: type=gha,mode=max,scope=php${{ matrix.php }}
-          build-args: |
-            PHP_VERSION=${{ matrix.php }}
-          platforms: linux/amd64
-
-      - name: Scan image with Trivy
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: scan:php${{ matrix.php }}
-          format: table
-          output: trivy-report.txt
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          trivyignores: .trivyignore.yaml
-          exit-code: '0'
-
-      - name: Prepare Trivy comment
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        run: |
-          {
-            echo "<details>"
-            echo "<summary>Trivy scan: PHP ${{ matrix.php }}</summary>"
-            echo ""
-            echo '```'
-            head -c 60000 trivy-report.txt
-            echo ""
-            echo '```'
-            echo "</details>"
-          } > trivy-comment.md
-
-      - name: Comment Trivy report on the PR
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: marocchino/sticky-pull-request-comment@v3
-        with:
-          header: trivy-php${{ matrix.php }}
-          path: trivy-comment.md
-
-      # Do not publish a release that has fixable critical vulnerabilities
-      - name: Gate release on critical vulnerabilities
-        if: github.event_name == 'release'
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: scan:php${{ matrix.php }}
-          format: table
-          severity: CRITICAL
-          ignore-unfixed: true
-          trivyignores: .trivyignore.yaml
-          exit-code: '1'
-
-      - name: Build and push Docker image
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=php${{ matrix.php }}
-          cache-to: type=gha,mode=max,scope=php${{ matrix.php }}
+          registry: ghcr
+          variant: php${{ matrix.php }}
+          variant-default: ${{ matrix.php == '8.5' }}
           build-args: |
             PHP_VERSION=${{ matrix.php }}
           platforms: linux/386,linux/amd64,linux/arm/v7,linux/arm64
-          provenance: mode=max
-          sbom: true
-
-      - name: Install cosign
-        if: github.event_name != 'pull_request'
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign the image
-        if: github.event_name != 'pull_request'
-        run: cosign sign --yes "${REGISTRY}/${{ github.repository }}@${{ steps.build.outputs.digest }}"

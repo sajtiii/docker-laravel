@@ -17,7 +17,7 @@ The project initially followed the Laravel versioning scheme (e.g. `:v11` contai
 | `edge`, `edge-phpX.Y`              | Latest `main` branch builds                                                 |
 | `nightly`, `nightly-phpX.Y`        | Rebuilt every night from `main` without cache, to pick up base image and package updates |
 
-The nightly workflow scans these images with [Trivy](https://trivy.dev) and tracks fixable `HIGH` and `CRITICAL` vulnerabilities in one issue per PHP version (label `nightly-scan`). It closes the issue once the findings are gone.
+Every build is scanned with [Trivy](https://trivy.dev). A nightly image with fixable `HIGH` or `CRITICAL` vulnerabilities is not published, the previous nightly stays in place and the run fails.
 
 ## Compatibility matrix
 
@@ -78,7 +78,7 @@ Put anything else the application writes, such as a SQLite database, on a volume
 
 ## Supply chain
 
-- The upstream project rebuilds the base image whenever PHP or Alpine publish updates, and the nightly workflow rebuilds this image to pick them up.
+- The upstream project rebuilds the base image whenever PHP or Alpine publish updates, and the nightly build rebuilds this image to pick them up.
 - CI builds every image with SBOM and max provenance attestations, and signs every image outside pull requests with [cosign](https://docs.sigstore.dev/cosign/overview/) (keyless). To verify a signature:
 
   ```sh
@@ -86,7 +86,7 @@ Put anything else the application writes, such as a SQLite database, on a volume
     --certificate-identity-regexp 'https://github.com/sajtiii/docker-laravel/.*' \
     --certificate-oidc-issuer https://token.actions.githubusercontent.com
   ```
-- Each pull request gets a [Trivy](https://trivy.dev) report per PHP version as a comment. The publish workflow does not release an image with a fixable `CRITICAL` vulnerability.
+- Each pull request gets a [Trivy](https://trivy.dev) report per PHP version as a comment.
 - The workflows run with minimal permissions.
 
 ## Configuration
