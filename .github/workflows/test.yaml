@@ -30,7 +30,7 @@ jobs:
             laravel: "13"
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Extend Dockerfile with laravel and npm installation
         run: |
@@ -109,7 +109,7 @@ jobs:
         laravel: ["12", "13"]
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Extend Dockerfile with laravel and octane installation
         run: |
